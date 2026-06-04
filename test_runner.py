@@ -15,6 +15,7 @@ SUPPORTED_ACTIONS = {
     "CALL", "END_CALL",
     "ANSWER_CALL",
     "SMS", "CHECK_SMS",
+    "CHECK_CALL",
     "USSD",
     "SET_CONFIG", "GET_CONFIG",
     "START_RECORD", "STOP_RECORD",
@@ -79,6 +80,10 @@ class TestRunner:
         if action == "CHECK_SMS":
             # Number/Code = sender number, Value = expected text (optional)
             return adb.check_sms_received(serial, number_code, expected_text=value)
+
+        if action == "CHECK_CALL":
+            # Number/Code = other party's number, Value = INCOMING/OUTGOING (optional)
+            return adb.check_call_log(serial, number_code, call_type=value)
 
         # ── USSD ─────────────────────────────────────────────────────
         if action == "USSD":

@@ -556,6 +556,58 @@ def _dismiss_ussd_dialog(serial: str) -> None:
         log.info("USSD dialog dismissed via BACK key")
 
 
+def check_call_log(serial: str, number: str, call_type: str = "") -> Result:
+    """Verify the most recent call to/from *number* exists in the call log.
+
+    call_type: "INCOMING", "OUTGOING", or "" (any).
+    Returns (True, "duration Xs | type=...") on success.
+    """
+    log = get_logger()
+
+    def normalise(n: str) -> str:
+        return re.sub(r"\D", "", n)[-8:]
+
+    ok, raw = _run(
+        _serial_args(serial)
+        + ["shell", "content", "query", "--uri", "content://call_log/calls"]
+    )
+    if not ok or "Row:" not in raw:
+        return False, f"Call log query failed or empty: {raw[:200]}"
+
+    # type values: 1=incoming, 2=outgoing, 3=missed, 4=voicemail
+    type_map = {"1": "INCOMING", "2": "OUTGOING", "3": "MISSED", "4": "VOICEMAIL"}
+    target = normalise(number)
+
+    for line in raw.splitlines():
+        if "number=" not in line and "name=" not in line:
+            continue
+        num_match = re.search(r"\bnumber=(\S+)", line)
+        if not num_match:
+            continue
+        num = normalise(num_match.group(1))
+        if not (num == target or num.endswith(target) or target.endswith(num)
+                or (len(target) >= 6 and num[-6:] == target[-6:])):
+            continue
+
+        dur_match = re.search(r"\bduration=(\d+)", line)
+        type_match = re.search(r"\btype=(\d+)", line)
+        duration = int(dur_match.group(1)) if dur_match else 0
+        ctype = type_map.get(type_match.group(1) if type_match else "", "UNKNOWN")
+
+        if call_type and call_type.upper() not in (ctype, "ANY"):
+            log.debug("Call found but type mismatch: got %s expected %s", ctype, call_type)
+            continue
+
+        if duration == 0:
+            return False, f"Call to/from {number} found but duration=0 (call may not have connected)"
+
+        msg = f"Call verified | duration={duration}s | type={ctype} | number={num_match.group(1)}"
+        log.info(msg)
+        return True, msg
+
+    return False, f"No call log entry found for {number}"
+
+
 def dial_ussd(serial: str, code: str) -> Result:
     """Dial a USSD code and return the network's response text."""
     log = get_logger()

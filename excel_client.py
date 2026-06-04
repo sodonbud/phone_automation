@@ -215,19 +215,17 @@ class ExcelClient:
         # fmt: (step, action, target, number_code, value, expected, section)
         rows = [
             # ── CALL TEST ──────────────────────────────────────────────
-            ("SECTION", "CALL TEST — Phone1 calls Phone2, Phone2 answers, both record"),
-            ("1",  "CALL",         "Phone1", "+97699002222", "",                     "",                  "CALL"),
-            ("2",  "ANSWER_CALL",  "Phone2", "",             "5",                    "Call answered",     "CALL"),
-            ("3",  "START_RECORD", "Phone1", "",             "recordings/p1_call.wav","",                 "CALL"),
-            ("4",  "START_RECORD", "Phone2", "",             "recordings/p2_call.wav","",                 "CALL"),
-            ("5",  "WAIT",         "Phone1", "10",           "",                     "",                  "CALL"),
-            ("6",  "END_CALL",     "Phone1", "",             "",                     "",                  "CALL"),
-            ("7",  "STOP_RECORD",  "Phone1", "",             "recordings/p1_call.wav","",                 "CALL"),
-            ("8",  "STOP_RECORD",  "Phone2", "",             "recordings/p2_call.wav","",                 "CALL"),
+            ("SECTION", "CALL TEST — Phone1 calls Phone2, Phone2 answers, verify via call log"),
+            ("1",  "CALL",         "Phone1", "+97699002222", "",               "",               "CALL"),
+            ("2",  "ANSWER_CALL",  "Phone2", "",             "5",              "Call answered",  "CALL"),
+            ("3",  "WAIT",         "Phone1", "10",           "",               "",               "CALL"),
+            ("4",  "END_CALL",     "Phone1", "",             "",               "",               "CALL"),
+            ("5",  "CHECK_CALL",   "Phone1", "+97699002222", "OUTGOING",       "Call verified",  "CALL"),
+            ("6",  "CHECK_CALL",   "Phone2", "+97699001111", "INCOMING",       "Call verified",  "CALL"),
             # ── SMS TEST ───────────────────────────────────────────────
             ("SECTION", "SMS TEST — Phone1 sends SMS, verify it arrives on Phone2"),
             ("9",  "SMS",          "Phone1", "+97699002222", "Hello from Phone1",    "",                  "SMS"),
-            ("10", "WAIT",         "Phone1", "15",           "",                     "",                  "SMS"),
+            ("10", "WAIT",         "Phone1", "5",            "",                     "",                  "SMS"),
             ("11", "CHECK_SMS",    "Phone2", "+97699001111", "Hello from Phone1",    "Hello from Phone1", "SMS"),
             # ── USSD TEST ──────────────────────────────────────────────
             ("SECTION", "USSD TEST — Dial USSD on Phone1, capture network response"),
@@ -238,10 +236,9 @@ class ExcelClient:
         action_notes = {
             "CALL":         "Phone1 dials Phone2. Leave Expected Result blank.",
             "ANSWER_CALL":  "Waits up to Value(secs) for incoming call on Phone2, then answers automatically.",
-            "START_RECORD": "Starts call recording. File saved to path in Value column.",
             "WAIT":         "Pause Number/Code seconds between steps.",
             "END_CALL":     "Hangs up the call on Phone1.",
-            "STOP_RECORD":  "Stops recording and pulls audio file to local path in Value column.",
+            "CHECK_CALL":   "Verify call in log: Number/Code=other party, Value=INCOMING or OUTGOING.",
             "SMS":          "Sends SMS from Phone1 to Number/Code with body in Value.",
             "CHECK_SMS":    "Queries Phone2 inbox for SMS from Number/Code containing Value text.",
             "USSD":         "Dials USSD code and captures network response text.",
