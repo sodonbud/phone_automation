@@ -88,11 +88,11 @@ python main.py --generate-template --file my_tests.xlsx
 
 | Action | Number/Code | Value | Notes |
 |---|---|---|---|
-| `CALL` | `+97699001122` | _(blank)_ | Triggers outgoing call |
-| `SMS` | `+97699001122` | `Hello world` | Opens SMS composer |
-| `USSD` | `*100#` | _(blank)_ | Launches dialer with code |
-| `SET_CONFIG` | `global/wifi_on` | `1` | `settings put global wifi_on 1` |
-| `GET_CONFIG` | `global/wifi_on` | _(blank)_ | `settings get global wifi_on` |
+| `CALL` | `+97699001122` | _(blank)_ | Leave Expected Result **blank** — ADB only confirms intent launched, not that the call connected |
+| `SMS` | `+97699001122` | `Hello world` | Leave Expected Result **blank** — same reason |
+| `USSD` | `*100#` | _(blank)_ | Leave Expected Result **blank** — same reason |
+| `SET_CONFIG` | `global/wifi_on` | `1` | Leave Expected Result blank (exit code determines pass/fail) |
+| `GET_CONFIG` | `global/wifi_on` | _(blank)_ | Set Expected Result to `1` to assert the value returned |
 
 ---
 

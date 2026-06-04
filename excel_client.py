@@ -195,11 +195,15 @@ class ExcelClient:
 
         # Example rows: one per action type
         examples = [
-            ["1", "CALL",       "Phone1", "+97699001122", "",              "Call connects",       "", "", "", ""],
-            ["2", "SMS",        "Phone2", "+97699001122", "Hello world",   "SMS composer opens",  "", "", "", ""],
-            ["3", "USSD",       "Phone1", "*100#",        "",              "USSD dialog appears", "", "", "", ""],
-            ["4", "SET_CONFIG", "Phone1", "global/wifi_on", "1",           "Setting changed",     "", "", "", ""],
-            ["5", "GET_CONFIG", "Phone1", "global/wifi_on", "",            "Returns '1'",         "", "", "", ""],
+            # Leave Expected Result blank for CALL/SMS/USSD — ADB only confirms the
+            # intent launched ("Starting: Intent {...}"), not that the action completed.
+            # Any successful launch is treated as PASS.
+            ["1", "CALL",       "Phone1", "+97699001122", "",              "",        "", "", "", ""],
+            ["2", "SMS",        "Phone1", "+97699001122", "Hello world",   "",        "", "", "", ""],
+            ["3", "USSD",       "Phone1", "*100#",        "",              "",        "", "", "", ""],
+            # For GET_CONFIG you can match the expected value in Expected Result.
+            ["4", "SET_CONFIG", "Phone1", "global/wifi_on", "1",           "",        "", "", "", ""],
+            ["5", "GET_CONFIG", "Phone1", "global/wifi_on", "",            "1",       "", "", "", ""],
         ]
 
         data_align = Alignment(vertical="center")
