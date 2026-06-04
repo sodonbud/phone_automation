@@ -77,9 +77,8 @@ def end_call(serial: str) -> Result:
     return _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_ENDCALL"])
 
 
-def _find_send_button(serial: str) -> tuple[int, int] | None:
-    """Dump the UI hierarchy and return (x, y) centre of the Send button, or None."""
-    log = get_logger()
+def _dump_ui_tree(serial: str) -> ET.Element | None:
+    """Run uiautomator dump and return the parsed XML root, or None on failure."""
     remote_xml = "/sdcard/_ui_dump.xml"
     ok, _ = _run(_serial_args(serial) + ["shell", "uiautomator", "dump", remote_xml])
     if not ok:
@@ -87,33 +86,54 @@ def _find_send_button(serial: str) -> tuple[int, int] | None:
     ok, xml_text = _run(_serial_args(serial) + ["shell", "cat", remote_xml])
     if not ok or not xml_text:
         return None
-
-    # Keywords that identify the Send button across common SMS apps
-    send_keywords = {"send", "sent", "send sms", "পাঠান", "enviar", "отправить"}
-
     try:
-        root = ET.fromstring(xml_text)
+        return ET.fromstring(xml_text)
     except ET.ParseError as exc:
-        log.debug("UI dump parse error: %s", exc)
+        get_logger().debug("UI dump parse error: %s", exc)
         return None
 
+
+def _find_clickable(root: ET.Element, text_keywords: set[str], id_suffixes: set[str]) -> tuple[int, int] | None:
+    """Search *root* for a clickable node matching keywords or resource-id suffixes.
+    Returns (x, y) centre of the node's bounds, or None."""
     for node in root.iter("node"):
+        if node.get("clickable") != "true":
+            continue
         text = (node.get("text") or "").lower()
         desc = (node.get("content-desc") or "").lower()
         res_id = (node.get("resource-id") or "").lower()
-        clickable = node.get("clickable") == "true"
-        # Match on text/content-desc, OR on resource-id ending with ":send" / "send"
-        id_is_send = res_id.endswith(":send") or res_id.endswith("/send") or res_id == "send"
-        if clickable and (text in send_keywords or desc in send_keywords or id_is_send):
-            bounds = node.get("bounds", "")
-            # bounds format: [x1,y1][x2,y2]
-            nums = re.findall(r"\d+", bounds)
+        id_match = any(res_id.endswith(s) for s in id_suffixes)
+        if text in text_keywords or desc in text_keywords or id_match:
+            nums = re.findall(r"\d+", node.get("bounds", ""))
             if len(nums) == 4:
-                x = (int(nums[0]) + int(nums[2])) // 2
-                y = (int(nums[1]) + int(nums[3])) // 2
-                log.debug("Send button found at (%d, %d) bounds=%s", x, y, bounds)
-                return x, y
+                return (int(nums[0]) + int(nums[2])) // 2, (int(nums[1]) + int(nums[3])) // 2
     return None
+
+
+def _find_send_button(serial: str) -> tuple[int, int] | None:
+    root = _dump_ui_tree(serial)
+    if root is None:
+        return None
+    keywords = {"send", "sent", "send sms", "পাঠান", "enviar", "отправить"}
+    id_suffixes = {":send", "/send", "send"}
+    coords = _find_clickable(root, keywords, id_suffixes)
+    if coords:
+        get_logger().debug("Send button found at %s", coords)
+    return coords
+
+
+def _find_call_button(serial: str) -> tuple[int, int] | None:
+    root = _dump_ui_tree(serial)
+    if root is None:
+        return None
+    # Common call/dial button labels and resource-id suffixes across dialer apps
+    keywords = {"call", "dial", "voice call", "дозвониться", "llamar"}
+    id_suffixes = {":fab", "/fab", ":call_button", "/call_button", ":dialpad_floating_action_button",
+                   "/dialpad_floating_action_button", ":call", "/call"}
+    coords = _find_clickable(root, keywords, id_suffixes)
+    if coords:
+        get_logger().debug("Call button found at %s", coords)
+    return coords
 
 
 def send_sms(serial: str, number: str, message: str) -> Result:
@@ -157,14 +177,32 @@ def send_sms(serial: str, number: str, message: str) -> Result:
 
 
 def dial_ussd(serial: str, code: str) -> Result:
-    """Launch the dialer with a USSD/MMI code (e.g. *100#)."""
-    # '#' must be encoded as %23 in the URI
+    """Open the dialer pre-filled with a USSD/MMI code then tap the call button."""
+    log = get_logger()
     encoded = urllib.parse.quote(code, safe="*+")
     uri = f"tel:{encoded}"
-    return _run(
+    ok, out = _run(
         _serial_args(serial)
         + ["shell", "am", "start", "-a", "android.intent.action.DIAL", "-d", uri]
     )
+    if not ok:
+        return False, out
+
+    time.sleep(2)
+
+    coords = _find_call_button(serial)
+    if coords:
+        x, y = coords
+        tap_ok, tap_out = _run(_serial_args(serial) + ["shell", "input", "tap", str(x), str(y)])
+        if tap_ok:
+            log.info("USSD call button tapped at (%d, %d)", x, y)
+            return True, f"{out} | Call tapped at ({x},{y})"
+        return False, f"Tap failed: {tap_out}"
+
+    # Fallback: CALL keyevent (keycode 5)
+    log.warning("Call button not found in UI dump — trying CALL keyevent as fallback")
+    _run(_serial_args(serial) + ["shell", "input", "keyevent", "5"])
+    return False, f"{out} | Call button not found; tried CALL keyevent fallback. Check screen manually."
 
 
 def set_config(serial: str, namespace: str, key: str, value: str) -> Result:
