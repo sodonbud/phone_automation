@@ -646,19 +646,31 @@ def _tap_incall_record_button(serial: str) -> bool:
     root = _dump_ui_tree(serial)
     if root is None:
         return False
-    # Google Pixel Phone app and Samsung incallui both expose a Record button
-    record_keywords = {"record", "recording", "start recording"}
+    record_keywords = {"record", "recording", "start recording", "rec"}
     record_id_suffixes = {
         ":incall_record_button", "/incall_record_button",
         ":record_button", "/record_button",
         ":record", "/record",
+        ":btn_record", "/btn_record",
     }
-    coords = _find_clickable(root, record_keywords, record_id_suffixes)
-    if coords:
-        x, y = coords
-        _run(_serial_args(serial) + ["shell", "input", "tap", str(x), str(y)])
-        log.info("In-call Record button tapped at (%d, %d)", x, y)
-        return True
+    # Also scan all clickable nodes for any attribute containing "record"
+    for node in root.iter("node"):
+        if node.get("clickable") != "true":
+            continue
+        text = (node.get("text") or "").lower()
+        desc = (node.get("content-desc") or "").lower()
+        res  = (node.get("resource-id") or "").lower()
+        if (text in record_keywords or desc in record_keywords
+                or any(res.endswith(s) for s in record_id_suffixes)
+                or "record" in res):
+            nums = re.findall(r"\d+", node.get("bounds", ""))
+            if len(nums) == 4:
+                x = (int(nums[0]) + int(nums[2])) // 2
+                y = (int(nums[1]) + int(nums[3])) // 2
+                _run(_serial_args(serial) + ["shell", "input", "tap", str(x), str(y)])
+                log.info("In-call Record button tapped at (%d, %d) res=%s", x, y, res)
+                return True
+    log.warning("Record button not found in UI dump for %s — is call recording enabled in Phone app settings?", serial)
     return False
 
 
