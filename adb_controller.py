@@ -591,22 +591,46 @@ def _find_latest_recording(serial: str) -> str | None:
     return candidates[0]
 
 
+def _tap_incall_record_button(serial: str) -> bool:
+    """Tap the Record button in the in-call UI. Returns True if tapped."""
+    log = get_logger()
+    root = _dump_ui_tree(serial)
+    if root is None:
+        return False
+    # Google Pixel Phone app and Samsung incallui both expose a Record button
+    record_keywords = {"record", "recording", "start recording"}
+    record_id_suffixes = {
+        ":incall_record_button", "/incall_record_button",
+        ":record_button", "/record_button",
+        ":record", "/record",
+    }
+    coords = _find_clickable(root, record_keywords, record_id_suffixes)
+    if coords:
+        x, y = coords
+        _run(_serial_args(serial) + ["shell", "input", "tap", str(x), str(y)])
+        log.info("In-call Record button tapped at (%d, %d)", x, y)
+        return True
+    return False
+
+
 def start_call_recording(serial: str) -> Result:
     """Start fully-automated call audio recording.
 
     Priority:
-      1. tinycap  — low-level mic capture, works on AOSP/most stock ROMs
-      2. ACR      — Another Call Recorder (must be installed once via Play Store
-                    or: adb install ACR.apk).  No UI needed; ACR auto-records
-                    all calls; we send it a broadcast to mark the start.
-      3. OEM setting — try known per-OEM settings keys that auto-enable call
-                    recording for the next call (Samsung, Xiaomi, Oppo etc.)
-
-    Falls back gracefully with a clear message if none are available.
+      1. In-call Record button — works on Pixel (Google Phone) and Samsung with
+         built-in call recording enabled.  No extra app needed.
+      2. tinycap  — low-level mic capture, works on AOSP/most stock ROMs.
+      3. ACR      — Another Call Recorder (install once from Play Store).
+      4. OEM setting — known per-OEM settings keys (Samsung, Xiaomi, Oppo).
     """
     log = get_logger()
 
-    # ── 1. tinycap ────────────────────────────────────────────────────
+    # ── 1. Tap in-call Record button ─────────────────────────────────
+    time.sleep(1)  # give the in-call UI a moment to fully render
+    if _tap_incall_record_button(serial):
+        return True, "Recording started via in-call Record button"
+
+    # ── 2. tinycap ────────────────────────────────────────────────────
     if _tinycap_available(serial):
         _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_SPEAKERPHONE"])
         time.sleep(1)
@@ -625,7 +649,7 @@ def start_call_recording(serial: str) -> Result:
         except Exception as exc:  # noqa: BLE001
             log.warning("tinycap launch error: %s", exc)
 
-    # ── 2. ACR broadcast ─────────────────────────────────────────────
+    # ── 3. ACR broadcast ─────────────────────────────────────────────
     if _acr_installed(serial):
         ok, out = _run(_serial_args(serial) + [
             "shell", "am", "broadcast",
@@ -637,7 +661,7 @@ def start_call_recording(serial: str) -> Result:
             return True, "Recording started via ACR"
         log.warning("ACR broadcast failed: %s", out)
 
-    # ── 3. OEM settings key ──────────────────────────────────────────
+    # ── 4. OEM settings key ──────────────────────────────────────────
     for ns, key, val in _OEM_REC_SETTINGS:
         ok, _ = _run(_serial_args(serial) + ["shell", "settings", "put", ns, key, val])
         if ok:
@@ -650,10 +674,10 @@ def start_call_recording(serial: str) -> Result:
     return False, (
         "No recording method available on this device.\n"
         "Options:\n"
-        "  A) Install ACR (Another Call Recorder) from the Play Store on this phone,\n"
-        "     then re-run — the tool will use it automatically.\n"
-        "  B) Manually enable call recording in Phone app → Settings → Call recording\n"
-        "     and use PULL_RECORDING action after the call to fetch the file."
+        "  A) On Pixel 9: open Phone app → Menu (⋮) → Settings → Call recording\n"
+        "     and enable 'Always record' or 'Record automatically'.\n"
+        "  B) Install ACR (Another Call Recorder) from the Play Store,\n"
+        "     then re-run — the tool will use it automatically."
     )
 
 
@@ -661,6 +685,12 @@ def stop_call_recording(serial: str, local_path: str) -> Result:
     """Stop recording and pull the audio file to *local_path*."""
     log = get_logger()
     os.makedirs(os.path.dirname(os.path.abspath(local_path)), exist_ok=True)
+
+    # ── In-call Record button (toggle off) ───────────────────────────
+    # If recording was started via the Record button, tap it again to stop.
+    # We attempt this regardless of method — a no-op if not recording.
+    _tap_incall_record_button(serial)
+    time.sleep(1)
 
     # ── tinycap stop ─────────────────────────────────────────────────
     pid = _tinycap_pids.pop(serial, None)
