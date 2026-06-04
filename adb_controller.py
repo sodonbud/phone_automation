@@ -22,10 +22,11 @@ def _run(args: list[str], timeout: int = config.ADB_TIMEOUT) -> Result:
         proc = subprocess.run(
             cmd,
             capture_output=True,
-            text=True,
             timeout=timeout,
         )
-        output = (proc.stdout + proc.stderr).strip()
+        stdout = proc.stdout.decode("utf-8", errors="replace") if proc.stdout else ""
+        stderr = proc.stderr.decode("utf-8", errors="replace") if proc.stderr else ""
+        output = (stdout + stderr).strip()
         log.debug("ADB OUT: %s", output)
         return proc.returncode == 0, output
     except FileNotFoundError:
@@ -144,17 +145,25 @@ def _find_answer_button(serial: str) -> tuple[int, int] | None:
 def _get_call_state(serial: str) -> int:
     """Return telephony call state: 0=IDLE, 1=RINGING, 2=OFFHOOK.
 
-    Uses dumpsys telephony.registry which is reliable on all Android versions.
+    Checks all SIM slots and takes the highest state so the idle SIM
+    doesn't mask an active one. Falls back to dumpsys telecom on Pixel/AOSP.
     """
     ok, out = _run(_serial_args(serial) + ["shell", "dumpsys", "telephony.registry"])
-    if not ok:
-        return 0
-    for line in out.splitlines():
-        line = line.strip()
-        if "mCallState" in line:
-            m = re.search(r"mCallState=(\d)", line)
-            if m:
-                return int(m.group(1))
+    if ok:
+        states = [int(m.group(1)) for m in re.finditer(r"mCallState=(\d)", out)]
+        if states:
+            best = max(states)
+            if best > 0:
+                return best
+
+    ok, out = _run(_serial_args(serial) + ["shell", "dumpsys", "telecom"])
+    if ok:
+        out_l = out.lower()
+        if "state: ringing" in out_l:
+            return 1
+        if "state: active" in out_l or "state: dialing" in out_l:
+            return 2
+
     return 0
 
 
@@ -487,7 +496,8 @@ def _read_ussd_response(serial: str, wait_secs: int = 15) -> str | None:
         "com.google.android.dialer:id/ussd_response",
     }
     not_ussd = {"calling", "calling...", "calling…", "connecting",
-                "dialing", "ringing", "on hold", "disconnected", ""}
+                "dialing", "ringing", "on hold", "disconnected",
+                "ussd code running", "ussd code running…", "ussd code running...", ""}
     deadline = time.time() + wait_secs
     while time.time() < deadline:
         time.sleep(2)
@@ -609,14 +619,15 @@ def _find_latest_recording(serial: str) -> str | None:
     /sdcard/Music and /sdcard/Ringtones to avoid picking up ringtone files.
     """
     search_dirs = [
-        "/sdcard/Recordings/Call",          # Samsung, stock Android
+        "/sdcard/CallRecordings",                        # com.nll.cb (ACR variant)
+        "/sdcard/Recordings/Call",                       # Samsung, stock Android
         "/sdcard/Call",
-        "/sdcard/CallRecordings",
         "/sdcard/MIUI/sound_recorder/call_rec",
         "/sdcard/PhoneRecord",
-        "/sdcard/Android/data/com.nll.acr/files",  # ACR
+        "/sdcard/Android/data/com.nll.acr/files",        # ACR classic
+        "/sdcard/Android/data/com.nll.cb/files",         # ACR (com.nll.cb)
         "/sdcard/Android/data/com.samsung.android.incallui/files",
-        "/sdcard/Recordings",               # broad Samsung fallback (not Music)
+        "/sdcard/Recordings",                            # broad Samsung fallback
     ]
     candidates = []
     for d in search_dirs:
@@ -746,10 +757,11 @@ def stop_call_recording(serial: str, local_path: str) -> Result:
     os.makedirs(os.path.dirname(os.path.abspath(local_path)), exist_ok=True)
 
     # ── In-call Record button (toggle off) ───────────────────────────
-    # If recording was started via the Record button, tap it again to stop.
-    # We attempt this regardless of method — a no-op if not recording.
-    _tap_incall_record_button(serial)
-    time.sleep(1)
+    # Only tap if call is still active; after END_CALL the in-call UI is
+    # gone and ACR stops automatically when the call ends.
+    if _get_call_state(serial) == 2:
+        _tap_incall_record_button(serial)
+        time.sleep(1)
 
     # ── tinycap stop ─────────────────────────────────────────────────
     pid = _tinycap_pids.pop(serial, None)
