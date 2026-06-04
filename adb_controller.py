@@ -402,45 +402,58 @@ def send_sms(serial: str, number: str, message: str) -> Result:
     return True, f"{last_out} | Send button not found; tried ENTER fallback."
 
 
-def check_sms_received(serial: str, from_number: str, expected_text: str = "") -> Result:
-    """Query the SMS inbox for the most recent message from *from_number*.
+def check_sms_received(serial: str, from_number: str, expected_text: str = "", timeout: int = 15) -> Result:
+    """Poll the SMS inbox until a message from *from_number* arrives, up to *timeout* seconds.
 
     Strips country-code prefixes when comparing so +97699001122 matches 99001122.
     Returns (True, message_body) if found, (False, reason) otherwise.
     """
     log = get_logger()
-    ok, raw = _run(
-        _serial_args(serial)
-        + ["shell", "content", "query", "--uri", "content://sms/inbox",
-           "--projection", "address,body,date",
-           "--sort", "date DESC"]
-    )
-    if not ok:
-        return False, f"SMS inbox query failed: {raw}"
 
-    # Normalise a phone number to digits only (last 8 digits for loose matching)
     def normalise(num: str) -> str:
         return re.sub(r"\D", "", num)[-8:]
 
-    target = normalise(from_number)
-    for line in raw.splitlines():
-        if "address=" not in line:
-            continue
-        addr_match = re.search(r"address=([^,]+)", line)
-        body_match = re.search(r"body=(.+?)(?:,\s*date=|$)", line)
-        if not addr_match:
-            continue
-        addr = normalise(addr_match.group(1))
-        body = body_match.group(1).strip() if body_match else ""
-        if addr == target or addr.endswith(target) or target.endswith(addr):
-            if expected_text and expected_text.lower() not in body.lower():
-                log.warning("SMS found from %s but body '%s' doesn't contain '%s'",
-                            from_number, body, expected_text)
-                return False, f"SMS received but content mismatch. Got: {body}"
-            log.info("SMS from %s found: %s", from_number, body)
-            return True, body
+    def _query_inbox() -> tuple[bool, str] | None:
+        ok, raw = _run(
+            _serial_args(serial)
+            + ["shell", "content", "query", "--uri", "content://sms/inbox",
+               "--projection", "address,body,date",
+               "--sort", "date DESC"]
+        )
+        if not ok:
+            return False, f"SMS inbox query failed: {raw}"
+        target = normalise(from_number)
+        for line in raw.splitlines():
+            if "address=" not in line:
+                continue
+            addr_match = re.search(r"address=([^,]+)", line)
+            body_match = re.search(r"body=(.+?)(?:,\s*date=|$)", line)
+            if not addr_match:
+                continue
+            addr = normalise(addr_match.group(1))
+            body = body_match.group(1).strip() if body_match else ""
+            if addr == target or addr.endswith(target) or target.endswith(addr):
+                if expected_text and expected_text.lower() not in body.lower():
+                    log.warning("SMS found from %s but body '%s' doesn't contain '%s'",
+                                from_number, body, expected_text)
+                    return False, f"SMS received but content mismatch. Got: {body}"
+                log.info("SMS from %s found: %s", from_number, body)
+                return True, body
+        return None  # not found yet
 
-    return False, f"No SMS from {from_number} found in inbox"
+    log.info("Waiting up to %ds for SMS from %s on %s ...", timeout, from_number, serial)
+    deadline = time.time() + timeout
+    last_fail = f"No SMS from {from_number} found in inbox"
+    while time.time() < deadline:
+        result = _query_inbox()
+        if result is not None:
+            return result
+        time.sleep(3)
+    # Final check
+    result = _query_inbox()
+    if result is not None:
+        return result
+    return False, last_fail
 
 
 def _read_ussd_response(serial: str, wait_secs: int = 15) -> str | None:
