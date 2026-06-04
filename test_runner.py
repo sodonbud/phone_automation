@@ -18,7 +18,7 @@ SUPPORTED_ACTIONS = {
     "USSD",
     "SET_CONFIG", "GET_CONFIG",
     "START_RECORD", "STOP_RECORD",
-    "WAIT",
+    "WAIT", "WAKE",
 }
 
 
@@ -104,6 +104,10 @@ class TestRunner:
         if action == "STOP_RECORD":
             local_path = value or f"recordings/{target}_{datetime.now().strftime('%H%M%S')}.mp3"
             return adb.stop_call_recording(serial, local_path=local_path)
+
+        # ── Wake / unlock screen ─────────────────────────────────────
+        if action == "WAKE":
+            return adb.wake_and_unlock(serial)
 
         # ── Pause ────────────────────────────────────────────────────
         if action == "WAIT":

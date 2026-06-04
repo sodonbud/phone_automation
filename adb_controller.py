@@ -160,6 +160,38 @@ def get_connected_devices() -> list[str]:
     return serials
 
 
+def wake_and_unlock(serial: str) -> Result:
+    """Wake the screen and dismiss the keyguard so ADB commands take effect.
+
+    Safe to call even if the screen is already on and unlocked.
+    Does NOT bypass PIN/password — only works with swipe/no lock screen.
+    """
+    log = get_logger()
+
+    # Check current screen state
+    ok, out = _run(_serial_args(serial) + ["shell", "dumpsys", "power"])
+    screen_on = "mWakefulness=Awake" in out or "mHoldingDisplaySuspendBlocker=true" in out
+
+    if not screen_on:
+        _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_WAKEUP"])
+        time.sleep(1)
+        log.info("Screen woken on %s", serial)
+
+    # Dismiss keyguard (works only when no PIN/password is set)
+    _run(_serial_args(serial) + ["shell", "wm", "dismiss-keyguard"])
+
+    # Swipe up as a fallback unlock gesture
+    ok2, res = _run(_serial_args(serial) + ["shell", "dumpsys", "window"])
+    locked = "mDreamingLockscreen=true" in res or "isStatusBarKeyguard=true" in res
+    if locked:
+        # Swipe up from bottom-centre to dismiss lock screen
+        _run(_serial_args(serial) + ["shell", "input", "swipe", "540", "1600", "540", "800", "300"])
+        time.sleep(0.5)
+        log.info("Lock screen swipe performed on %s", serial)
+
+    return True, "Screen ready"
+
+
 def make_call(serial: str, number: str) -> Result:
     """Trigger an outgoing call via the Android dialer."""
     uri = f"tel:{urllib.parse.quote(number)}"
@@ -195,13 +227,17 @@ def wait_for_incoming_call(serial: str, timeout: int = 5) -> Result:
 
 
 def answer_call(serial: str) -> Result:
-    """Answer an incoming call — no UI interaction needed.
+    """Wake the screen, unlock, then answer the incoming call.
 
     Priority:
       1. telecom accept-ringing-call  (Android 6+, most reliable)
       2. KEYCODE_CALL keyevent         (universal fallback)
     """
     log = get_logger()
+
+    # Ensure screen is on and unlocked before issuing any commands
+    wake_and_unlock(serial)
+    time.sleep(0.5)
 
     # Primary: telecom service command — works regardless of dialer UI
     ok, out = _run(_serial_args(serial) + ["shell", "telecom", "accept-ringing-call"])
