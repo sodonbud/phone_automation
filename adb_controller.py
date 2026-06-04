@@ -256,49 +256,66 @@ def wait_for_incoming_call(serial: str, timeout: int = 5) -> Result:
     return False, f"No incoming call on {serial} within {timeout}s (last state={state}: 0=idle 1=ringing 2=offhook)"
 
 
+def _wait_for_offhook(serial: str, wait: float = 2.0) -> bool:
+    """Return True if call state reaches OFFHOOK (2) within *wait* seconds."""
+    deadline = time.time() + wait
+    while time.time() < deadline:
+        if _get_call_state(serial) == 2:
+            return True
+        time.sleep(0.5)
+    return False
+
+
 def answer_call(serial: str) -> Result:
     """Wake the screen, unlock, then answer the incoming call.
 
-    Priority:
-      1. telecom accept-ringing-call  (Android 6+, most reliable)
-      2. KEYCODE_CALL keyevent         (universal fallback)
+    Every method is verified by checking mCallState=2 (OFFHOOK) afterwards
+    so a silent failure (exit 0 but call not answered) is caught.
     """
     log = get_logger()
 
-    # Ensure screen is on and unlocked before issuing any commands
     wake_and_unlock(serial)
     time.sleep(0.5)
 
-    # Primary: telecom service command — works regardless of dialer UI
-    ok, out = _run(_serial_args(serial) + ["shell", "telecom", "accept-ringing-call"])
-    if ok:
+    # ── 1. telecom accept-ringing-call ───────────────────────────────
+    _run(_serial_args(serial) + ["shell", "telecom", "accept-ringing-call"])
+    if _wait_for_offhook(serial):
         log.info("Call answered via telecom accept-ringing-call on %s", serial)
         return True, "Call answered (telecom)"
 
-    # Fallback 1: KEYCODE_CALL
-    log.warning("telecom accept-ringing-call failed (%s) — trying KEYCODE_CALL", out)
-    ok, out = _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_CALL"])
-    if ok:
-        # Verify the call actually moved to OFFHOOK state
-        time.sleep(1)
-        if _get_call_state(serial) == 2:
-            return True, "Call answered via KEYCODE_CALL"
+    # ── 2. KEYCODE_CALL ──────────────────────────────────────────────
+    log.warning("telecom did not answer (state still %d) — trying KEYCODE_CALL", _get_call_state(serial))
+    _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_CALL"])
+    if _wait_for_offhook(serial):
+        return True, "Call answered via KEYCODE_CALL"
 
-    # Fallback 2: Xiaomi HyperOS / MIUI — tap the green answer button by coordinates
-    # derived from screen size so it works on any resolution
-    log.warning("KEYCODE_CALL did not answer — trying Xiaomi coordinate tap")
+    # ── 3. Coordinate tap — Xiaomi HyperOS incoming call screen ─────
+    log.warning("KEYCODE_CALL did not answer — trying coordinate tap")
     w, h = _get_screen_size(serial)
-    # On MIUI/HyperOS the green answer button sits at ~25% from left, ~75% from top
+    # MIUI/HyperOS: green answer button ~25% from left, ~75% from top
     ax, ay = int(w * 0.25), int(h * 0.75)
     _run(_serial_args(serial) + ["shell", "input", "tap", str(ax), str(ay)])
-    time.sleep(1)
-    if _get_call_state(serial) == 2:
-        return True, f"Call answered via coordinate tap ({ax},{ay})"
+    if _wait_for_offhook(serial):
+        return True, f"Call answered via tap ({ax},{ay})"
 
+    # ── 4. UI dump — find answer button exactly ──────────────────────
+    log.warning("Coordinate tap did not answer — scanning UI for answer button")
+    root = _dump_ui_tree(serial)
+    if root:
+        keywords = {"answer", "accept", "받기", "응답", "принять", "atender"}
+        id_suffixes = {":answer_action_view", "/answer_action_view", ":answer", "/answer",
+                       ":floating_action_button", "/floating_action_button"}
+        coords = _find_clickable(root, keywords, id_suffixes)
+        if coords:
+            _run(_serial_args(serial) + ["shell", "input", "tap", str(coords[0]), str(coords[1])])
+            if _wait_for_offhook(serial):
+                return True, f"Call answered via UI tap {coords}"
+
+    state = _get_call_state(serial)
     return False, (
-        "Could not answer call automatically. "
-        "On Xiaomi HyperOS go to: Settings → Additional settings → Developer options → "
-        "enable 'Disable permission monitoring' and 'USB debugging (Security settings)'."
+        f"Could not answer call (final state={state}: 0=idle 1=ringing 2=offhook). "
+        "On Xiaomi HyperOS enable: Settings → Additional settings → Developer options → "
+        "'USB debugging (Security settings)' and 'Disable permission monitoring'."
     )
 
 
