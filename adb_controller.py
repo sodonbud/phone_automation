@@ -89,7 +89,7 @@ def _find_send_button(serial: str) -> tuple[int, int] | None:
         return None
 
     # Keywords that identify the Send button across common SMS apps
-    send_keywords = {"send", "sent", "পাঠান", "enviar", "отправить"}
+    send_keywords = {"send", "sent", "send sms", "পাঠান", "enviar", "отправить"}
 
     try:
         root = ET.fromstring(xml_text)
@@ -100,8 +100,11 @@ def _find_send_button(serial: str) -> tuple[int, int] | None:
     for node in root.iter("node"):
         text = (node.get("text") or "").lower()
         desc = (node.get("content-desc") or "").lower()
+        res_id = (node.get("resource-id") or "").lower()
         clickable = node.get("clickable") == "true"
-        if clickable and (text in send_keywords or desc in send_keywords):
+        # Match on text/content-desc, OR on resource-id ending with ":send" / "send"
+        id_is_send = res_id.endswith(":send") or res_id.endswith("/send") or res_id == "send"
+        if clickable and (text in send_keywords or desc in send_keywords or id_is_send):
             bounds = node.get("bounds", "")
             # bounds format: [x1,y1][x2,y2]
             nums = re.findall(r"\d+", bounds)
