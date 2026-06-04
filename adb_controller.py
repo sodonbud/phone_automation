@@ -277,39 +277,49 @@ def answer_call(serial: str) -> Result:
     wake_and_unlock(serial)
     time.sleep(0.5)
 
-    # ── 1. telecom accept-ringing-call ───────────────────────────────
+    w, h = _get_screen_size(serial)
+
+    # ── 1. KEYCODE_HEADSETHOOK ───────────────────────────────────────
+    # Simulates headset button press — answers floating notification calls on HyperOS.
+    # uiautomator cannot see the floating call banner; keyevents still reach the system.
+    _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_HEADSETHOOK"])
+    if _wait_for_offhook(serial):
+        log.info("Call answered via KEYCODE_HEADSETHOOK on %s", serial)
+        return True, "Call answered (HEADSETHOOK)"
+
+    # ── 2. telecom accept-ringing-call ───────────────────────────────
+    log.warning("HEADSETHOOK did not answer (state=%d) — trying telecom", _get_call_state(serial))
     _run(_serial_args(serial) + ["shell", "telecom", "accept-ringing-call"])
     if _wait_for_offhook(serial):
-        log.info("Call answered via telecom accept-ringing-call on %s", serial)
         return True, "Call answered (telecom)"
 
-    # ── 2. KEYCODE_CALL ──────────────────────────────────────────────
-    log.warning("telecom did not answer (state still %d) — trying KEYCODE_CALL", _get_call_state(serial))
+    # ── 3. KEYCODE_CALL ──────────────────────────────────────────────
+    log.warning("telecom did not answer (state=%d) — trying KEYCODE_CALL", _get_call_state(serial))
     _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_CALL"])
     if _wait_for_offhook(serial):
         return True, "Call answered via KEYCODE_CALL"
 
-    # ── 3. Coordinate tap — Xiaomi HyperOS incoming call screen ─────
-    log.warning("KEYCODE_CALL did not answer — trying coordinate tap")
-    w, h = _get_screen_size(serial)
-    # MIUI/HyperOS: green answer button ~25% from left, ~75% from top
+    # ── 4. Tap the floating notification answer button ────────────────
+    # HyperOS floating call banner: ~top 10% of screen, answer button on right side
+    log.warning("KEYCODE_CALL did not answer — tapping notification answer area")
+    tap_x = int(w * 0.82)
+    tap_y = int(h * 0.09)
+    _run(_serial_args(serial) + ["shell", "input", "tap", str(tap_x), str(tap_y)])
+    if _wait_for_offhook(serial):
+        return True, f"Call answered via notification tap ({tap_x},{tap_y})"
+
+    # ── 5. Expand to full-screen call UI then tap green button ────────
+    log.warning("Notification tap did not answer — expanding to full-screen call")
+    _run(_serial_args(serial) + [
+        "shell", "am", "start",
+        "-a", "android.intent.action.MAIN",
+        "-c", "android.intent.category.CALL_PRIVILEGED",
+    ])
+    time.sleep(1.5)
     ax, ay = int(w * 0.25), int(h * 0.75)
     _run(_serial_args(serial) + ["shell", "input", "tap", str(ax), str(ay)])
     if _wait_for_offhook(serial):
-        return True, f"Call answered via tap ({ax},{ay})"
-
-    # ── 4. UI dump — find answer button exactly ──────────────────────
-    log.warning("Coordinate tap did not answer — scanning UI for answer button")
-    root = _dump_ui_tree(serial)
-    if root:
-        keywords = {"answer", "accept", "받기", "응답", "принять", "atender"}
-        id_suffixes = {":answer_action_view", "/answer_action_view", ":answer", "/answer",
-                       ":floating_action_button", "/floating_action_button"}
-        coords = _find_clickable(root, keywords, id_suffixes)
-        if coords:
-            _run(_serial_args(serial) + ["shell", "input", "tap", str(coords[0]), str(coords[1])])
-            if _wait_for_offhook(serial):
-                return True, f"Call answered via UI tap {coords}"
+        return True, f"Call answered via full-screen tap ({ax},{ay})"
 
     state = _get_call_state(serial)
     return False, (
