@@ -337,99 +337,79 @@ def dial_ussd(serial: str, code: str) -> Result:
     return False, f"{out} | USSD sent but no response dialog detected."
 
 
-def _find_record_button(serial: str) -> tuple[int, int] | None:
-    """Find the in-call Record button in the dialer UI."""
-    root = _dump_ui_tree(serial)
-    if root is None:
-        return None
-    keywords = {"record", "recording", "rec", "записать", "grabar"}
-    id_suffixes = {":record_button", "/record_button", ":record", "/record",
-                   ":incall_record", "/incall_record"}
-    coords = _find_clickable(root, keywords, id_suffixes)
-    if coords:
-        get_logger().debug("Record button found at %s", coords)
-    return coords
+# Tracks background tinycap PIDs per serial so stop_call_recording can kill them
+_tinycap_pids: dict[str, str] = {}
 
-
-def _find_latest_call_recording(serial: str) -> str | None:
-    """Return the remote path of the most recently modified call recording file."""
-    log = get_logger()
-    # Common directories where dialers save call recordings
-    search_dirs = [
-        "/sdcard/Recordings/Call",
-        "/sdcard/MIUI/sound_recorder/call_rec",
-        "/sdcard/CallRecordings",
-        "/sdcard/PhoneRecord",
-        "/sdcard/Sounds",
-        "/sdcard/Music",
-        "/sdcard/DCIM",
-        "/sdcard/",
-    ]
-    for d in search_dirs:
-        ok, out = _run(_serial_args(serial) + [
-            "shell", "find", d, "-maxdepth", "2",
-            "-name", "*.mp3", "-o", "-name", "*.mp4",
-            "-o", "-name", "*.m4a", "-o", "-name", "*.amr",
-            "-o", "-name", "*.3gp",
-        ], timeout=10)
-        if ok and out.strip():
-            # Pick the most recently modified file
-            files = [f.strip() for f in out.splitlines() if f.strip()]
-            if files:
-                # Sort by modification time on device
-                ok2, newest = _run(_serial_args(serial) + [
-                    "shell", "ls", "-t"
-                ] + files)
-                if ok2 and newest.strip():
-                    result = newest.splitlines()[0].strip()
-                    log.debug("Latest recording candidate: %s", result)
-                    return result
-    return None
+# Remote path used for all recordings; pulled to local on stop
+_REMOTE_REC = "/sdcard/_automation_call_rec.wav"
 
 
 def start_call_recording(serial: str) -> Result:
-    """Tap the Record button in the active in-call screen to start voice recording."""
+    """Record call audio with zero human interaction using tinycap.
+
+    Strategy:
+      1. Enable speakerphone via keyevent so the mic captures both voices.
+      2. Launch tinycap (built-in on AOSP/most Android) as a background shell
+         process and store its PID for a clean stop.
+    """
     log = get_logger()
-    coords = _find_record_button(serial)
-    if coords:
-        x, y = coords
-        ok, out = _run(_serial_args(serial) + ["shell", "input", "tap", str(x), str(y)])
-        if ok:
-            log.info("Record button tapped at (%d, %d) on %s", x, y, serial)
-            return True, f"Call recording started (tapped {x},{y})"
-        return False, f"Record button tap failed: {out}"
-    return False, (
-        "Record button not found in dialer UI. "
-        "Make sure call recording is enabled in your dialer settings "
-        "(Phone app → Settings → Call recording → Always record / Auto record)."
+
+    # Enable speakerphone so the microphone picks up both sides
+    _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_SPEAKERPHONE"])
+    time.sleep(1)
+
+    # Check tinycap is available
+    ok, out = _run(_serial_args(serial) + ["shell", "which", "tinycap"])
+    if not ok or not out.strip():
+        return False, (
+            "tinycap not found on this device. "
+            "It is present on most stock Android ROMs but absent on some OEM builds. "
+            "As a workaround install a call-recorder APK that accepts broadcast intents "
+            "(e.g. ACR — Another Call Recorder) and trigger it via adb shell am broadcast."
+        )
+
+    # Start tinycap in the background; capture its PID
+    # -D 0 = card 0, -d 0 = device 0, -c 1 = mono, -r 16000 = 16 kHz, -b 16 = 16-bit
+    bg_cmd = (
+        f'"{config.ADB_PATH}" -s {serial} shell '
+        f'"tinycap {_REMOTE_REC} -D 0 -d 0 -c 1 -r 16000 -b 16 '
+        f'>/dev/null 2>&1 & echo $!"'
     )
+    try:
+        proc = subprocess.run(bg_cmd, shell=True, capture_output=True, text=True, timeout=10)
+        pid = proc.stdout.strip()
+        if not pid.isdigit():
+            return False, f"tinycap started but PID not returned (got: {proc.stdout!r})"
+        _tinycap_pids[serial] = pid
+        log.info("tinycap recording started on %s (PID %s) → %s", serial, pid, _REMOTE_REC)
+        return True, f"Recording started (PID {pid}, speakerphone on)"
+    except Exception as exc:  # noqa: BLE001
+        return False, f"Error launching tinycap: {exc}"
 
 
 def stop_call_recording(serial: str, local_path: str) -> Result:
-    """Tap Record again to stop, then pull the saved audio file to *local_path*."""
+    """Stop tinycap, pull the WAV file to *local_path*, and turn off speakerphone."""
     log = get_logger()
+    pid = _tinycap_pids.pop(serial, None)
 
-    # Tap Record button again to stop
-    coords = _find_record_button(serial)
-    if coords:
-        x, y = coords
-        _run(_serial_args(serial) + ["shell", "input", "tap", str(x), str(y)])
-        log.info("Record button tapped again to stop on %s", serial)
+    if pid:
+        # SIGINT flushes the WAV header so the file is valid
+        _run(_serial_args(serial) + ["shell", "kill", "-INT", pid])
+        log.info("tinycap (PID %s) stopped on %s", pid, serial)
     else:
-        log.warning("Record stop button not found on %s — recording may still be running", serial)
+        log.warning("No tracked tinycap PID for %s — trying pkill", serial)
+        _run(_serial_args(serial) + ["shell", "pkill", "-INT", "tinycap"])
 
-    # Give the app a moment to flush the file
-    time.sleep(2)
+    time.sleep(1)  # let the WAV header flush
 
-    remote_path = _find_latest_call_recording(serial)
-    if not remote_path:
-        return False, "Recording stopped but could not locate the saved file on device."
+    # Turn speakerphone off now that recording is done
+    _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_SPEAKERPHONE"])
 
     os.makedirs(os.path.dirname(os.path.abspath(local_path)), exist_ok=True)
-    ok, out = _run(_serial_args(serial) + ["pull", remote_path, local_path])
+    ok, out = _run(_serial_args(serial) + ["pull", _REMOTE_REC, local_path])
     if ok:
-        log.info("Call recording pulled to '%s'", local_path)
-        return True, f"Recording saved to {local_path} (from {remote_path})"
+        log.info("Recording pulled to '%s'", local_path)
+        return True, f"Recording saved to {local_path}"
     return False, f"Pull failed: {out}"
 
 
