@@ -414,23 +414,30 @@ def check_sms_received(serial: str, from_number: str, expected_text: str = "", t
         return re.sub(r"\D", "", num)[-8:]
 
     def _query_inbox() -> tuple[bool, str] | None:
-        # Query all SMS (not just /inbox) in case delivery state differs on device
-        ok, raw = _run(
-            _serial_args(serial)
-            + ["shell", "content", "query", "--uri", "content://sms",
-               "--sort", "date DESC"]
-        )
-        if not ok:
-            return False, f"SMS query failed: {raw}"
+        # Try /inbox first (confirmed working on Pixel 9), fall back to /sms
+        raw = ""
+        for uri in ["content://sms/inbox", "content://sms"]:
+            ok, out = _run(
+                _serial_args(serial)
+                + ["shell", "content", "query", "--uri", uri, "--sort", "date DESC"]
+            )
+            if ok and "Row:" in out:
+                raw = out
+                break
+            log.debug("SMS query %s failed or empty: %s", uri, out[:200])
+
+        if not raw:
+            return False, "SMS query returned no rows"
+
         target = normalise(from_number)
+        log.debug("SMS raw (first 500): %s", raw[:500])
         for line in raw.splitlines():
             if "address=" not in line:
                 continue
-            addr_match = re.search(r"address=([^,\s]+)", line)
+            addr_match = re.search(r"address=(\S+)", line)
             if not addr_match:
                 continue
             addr = normalise(addr_match.group(1))
-            # body= may contain commas; match up to next known column name
             body_match = re.search(
                 r"body=(.+?)(?:,\s*(?:type|date|_id|thread_id|read|status|"
                 r"protocol|reply_path_present|subject|service_center|locked|"
@@ -438,7 +445,7 @@ def check_sms_received(serial: str, from_number: str, expected_text: str = "", t
                 line,
             )
             body = body_match.group(1).strip() if body_match else ""
-            # Match last 8 digits; fall back to last 6 for loose country-code tolerance
+            log.debug("SMS row: addr=%s (norm=%s) target=%s body=%s", addr_match.group(1), addr, target, body[:60])
             matched = (addr == target
                        or addr.endswith(target) or target.endswith(addr)
                        or (len(target) >= 6 and addr[-6:] == target[-6:]))
