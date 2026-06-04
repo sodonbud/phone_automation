@@ -414,25 +414,35 @@ def check_sms_received(serial: str, from_number: str, expected_text: str = "", t
         return re.sub(r"\D", "", num)[-8:]
 
     def _query_inbox() -> tuple[bool, str] | None:
+        # Query all SMS (not just /inbox) in case delivery state differs on device
         ok, raw = _run(
             _serial_args(serial)
-            + ["shell", "content", "query", "--uri", "content://sms/inbox",
-               "--projection", "address,body,date",
+            + ["shell", "content", "query", "--uri", "content://sms",
                "--sort", "date DESC"]
         )
         if not ok:
-            return False, f"SMS inbox query failed: {raw}"
+            return False, f"SMS query failed: {raw}"
         target = normalise(from_number)
         for line in raw.splitlines():
             if "address=" not in line:
                 continue
-            addr_match = re.search(r"address=([^,]+)", line)
-            body_match = re.search(r"body=(.+?)(?:,\s*date=|$)", line)
+            addr_match = re.search(r"address=([^,\s]+)", line)
             if not addr_match:
                 continue
             addr = normalise(addr_match.group(1))
+            # body= may contain commas; match up to next known column name
+            body_match = re.search(
+                r"body=(.+?)(?:,\s*(?:type|date|_id|thread_id|read|status|"
+                r"protocol|reply_path_present|subject|service_center|locked|"
+                r"error_code|seen|sub_id|creator)=|$)",
+                line,
+            )
             body = body_match.group(1).strip() if body_match else ""
-            if addr == target or addr.endswith(target) or target.endswith(addr):
+            # Match last 8 digits; fall back to last 6 for loose country-code tolerance
+            matched = (addr == target
+                       or addr.endswith(target) or target.endswith(addr)
+                       or (len(target) >= 6 and addr[-6:] == target[-6:]))
+            if matched:
                 if expected_text and expected_text.lower() not in body.lower():
                     log.warning("SMS found from %s but body '%s' doesn't contain '%s'",
                                 from_number, body, expected_text)
@@ -457,37 +467,54 @@ def check_sms_received(serial: str, from_number: str, expected_text: str = "", t
 
 
 def _read_ussd_response(serial: str, wait_secs: int = 15) -> str | None:
-    """Poll the UI until a USSD response dialog appears, then return its message text."""
+    """Poll the UI until a USSD response dialog appears, then return its message text.
+
+    Collects ALL text fragments from matching nodes and joins them so that
+    multi-node responses (e.g. "MSISDN:" in one node and the number in another)
+    are returned as a single string.
+    """
     log = get_logger()
     response_ids = {
         "android:id/message",
         "com.android.phone:id/message",
         "com.google.android.dialer:id/ussd_response",
     }
+    not_ussd = {"calling", "calling...", "calling…", "connecting",
+                "dialing", "ringing", "on hold", "disconnected", ""}
     deadline = time.time() + wait_secs
     while time.time() < deadline:
         time.sleep(2)
         root = _dump_ui_tree(serial)
         if root is None:
             continue
+
+        # ── Pass 1: collect all nodes with known USSD resource-ids ──────
+        fragments: list[str] = []
         for node in root.iter("node"):
             res_id = node.get("resource-id") or ""
             text = (node.get("text") or "").strip()
             if res_id in response_ids and text:
-                log.info("USSD response via resource-id '%s': %s", res_id, text)
-                return text
-        # Broader fallback: TextView in telephony/dialer package
-        # Exclude transient dialer state strings that are NOT USSD responses
-        not_ussd = {"calling", "calling...", "calling…", "connecting",
-                    "dialing", "ringing", "on hold", "disconnected", ""}
+                fragments.append(text)
+        if fragments:
+            result = " ".join(fragments)
+            log.info("USSD response (resource-id): %s", result)
+            return result
+
+        # ── Pass 2: all TextViews in telephony/dialer package ───────────
+        fragments = []
         for node in root.iter("node"):
             pkg = node.get("package") or ""
             cls = node.get("class") or ""
             text = (node.get("text") or "").strip()
             if (("phone" in pkg or "dialer" in pkg) and "TextView" in cls
-                    and len(text) > 5 and text.lower() not in not_ussd):
-                log.info("USSD response (fallback pkg=%s): %s", pkg, text)
-                return text
+                    and text and text.lower() not in not_ussd):
+                fragments.append(text)
+        if fragments:
+            result = " ".join(fragments)
+            if len(result) > 5:
+                log.info("USSD response (fallback TextView): %s", result)
+                return result
+
     log.warning("USSD response dialog not detected within %ds", wait_secs)
     return None
 
