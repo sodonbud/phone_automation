@@ -353,24 +353,29 @@ def send_sms(serial: str, number: str, message: str) -> Result:
     """Open the SMS composer, pre-fill number + body, then tap the Send button.
 
     Tries smsto: then sms: URI schemes for compatibility with Samsung/Pixel/AOSP.
+    The message body is base64-encoded to avoid shell word-splitting issues
+    (e.g. "from" in the body being parsed as a package flag).
     """
     log = get_logger()
+    import base64
     encoded_number = urllib.parse.quote(number)
+    # Encode message to avoid shell interpretation of special words like "from"
+    b64_msg = base64.b64encode(message.encode()).decode()
+    # Shell command: decode base64 then pass as sms_body via env var trick
+    # We use a temp file to pass the body safely
+    tmp_body = "/sdcard/_sms_body.txt"
+    _run(_serial_args(serial) + ["shell", f"echo '{b64_msg}' | base64 -d > {tmp_body}"])
 
-    # Try smsto: first (standard), then sms: (Samsung Messages / Google Messages fallback)
     launched = False
     last_out = ""
     for uri in [f"smsto:{encoded_number}", f"sms:{encoded_number}"]:
-        ok, out = _run(
-            _serial_args(serial)
-            + [
-                "shell", "am", "start",
-                "-a", "android.intent.action.SENDTO",
-                "-d", uri,
-                "--es", "sms_body", message,
-                "--ez", "exit_on_sent", "true",
-            ]
+        # Read body from the temp file in the shell to avoid any word-splitting
+        shell_cmd = (
+            f"am start -a android.intent.action.SENDTO -d '{uri}' "
+            f"--es sms_body \"$(cat {tmp_body})\" "
+            f"--ez exit_on_sent true"
         )
+        ok, out = _run(_serial_args(serial) + ["shell", shell_cmd])
         last_out = out
         if ok and "Error" not in out and "unable to resolve" not in out.lower():
             launched = True
@@ -474,6 +479,26 @@ def _read_ussd_response(serial: str, wait_secs: int = 15) -> str | None:
     return None
 
 
+def _dismiss_ussd_dialog(serial: str) -> None:
+    """Tap the OK/Close/Dismiss button on the USSD response dialog."""
+    log = get_logger()
+    root = _dump_ui_tree(serial)
+    if root is None:
+        return
+    ok_keywords = {"ok", "close", "dismiss", "cancel", "done"}
+    id_suffixes = {":button1", "/button1", ":button2", "/button2",
+                   ":ok", "/ok", ":close", "/close"}
+    coords = _find_clickable(root, ok_keywords, id_suffixes)
+    if coords:
+        x, y = coords
+        _run(_serial_args(serial) + ["shell", "input", "tap", str(x), str(y)])
+        log.info("USSD dialog dismissed via tap at (%d, %d)", x, y)
+    else:
+        # Fallback: press BACK key
+        _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_BACK"])
+        log.info("USSD dialog dismissed via BACK key")
+
+
 def dial_ussd(serial: str, code: str) -> Result:
     """Dial a USSD code and return the network's response text."""
     log = get_logger()
@@ -499,6 +524,7 @@ def dial_ussd(serial: str, code: str) -> Result:
         _run(_serial_args(serial) + ["shell", "input", "keyevent", "5"])
 
     response = _read_ussd_response(serial, wait_secs=15)
+    _dismiss_ussd_dialog(serial)
     if response:
         return True, response
     return False, f"{out} | USSD sent but no response dialog detected."
