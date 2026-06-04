@@ -121,21 +121,26 @@ def _find_answer_button(serial: str) -> tuple[int, int] | None:
     return coords
 
 
-def _has_incoming_call_ui(serial: str) -> bool:
-    """Return True if the device is currently showing an incoming call screen."""
-    root = _dump_ui_tree(serial)
-    if root is None:
-        return False
-    call_indicators = {"incoming call", "answer", "decline", "incoming"}
-    for node in root.iter("node"):
-        text = (node.get("text") or "").lower()
-        desc = (node.get("content-desc") or "").lower()
-        res_id = (node.get("resource-id") or "").lower()
-        if any(k in text for k in call_indicators) or any(k in desc for k in call_indicators):
-            return True
-        if "incall" in res_id or "incoming" in res_id or "answer" in res_id:
-            return True
-    return False
+def _get_call_state(serial: str) -> int:
+    """Return telephony call state: 0=IDLE, 1=RINGING, 2=OFFHOOK.
+
+    Uses dumpsys telephony.registry which is reliable on all Android versions.
+    """
+    ok, out = _run(_serial_args(serial) + ["shell", "dumpsys", "telephony.registry"])
+    if not ok:
+        return 0
+    for line in out.splitlines():
+        line = line.strip()
+        if "mCallState" in line:
+            m = re.search(r"mCallState=(\d)", line)
+            if m:
+                return int(m.group(1))
+    return 0
+
+
+def _has_incoming_call(serial: str) -> bool:
+    """Return True if the device has an incoming (ringing) call — state=1."""
+    return _get_call_state(serial) == 1
 
 
 # ---------------------------------------------------------------------------
@@ -169,17 +174,24 @@ def end_call(serial: str) -> Result:
     return _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_ENDCALL"])
 
 
-def wait_for_incoming_call(serial: str, timeout: int = 30) -> Result:
-    """Block until an incoming call UI appears on *serial*, up to *timeout* seconds."""
+def wait_for_incoming_call(serial: str, timeout: int = 5) -> Result:
+    """Block until an incoming call is ringing on *serial*, up to *timeout* seconds.
+
+    Uses dumpsys telephony.registry (mCallState=1) — reliable regardless of UI.
+    """
     log = get_logger()
     log.info("Waiting up to %ds for incoming call on %s ...", timeout, serial)
     deadline = time.time() + timeout
     while time.time() < deadline:
-        if _has_incoming_call_ui(serial):
-            log.info("Incoming call detected on %s", serial)
+        if _has_incoming_call(serial):
+            log.info("Incoming call detected on %s (mCallState=1)", serial)
             return True, "Incoming call detected"
-        time.sleep(2)
-    return False, f"No incoming call detected on {serial} within {timeout}s"
+        time.sleep(1)
+    # Last check
+    state = _get_call_state(serial)
+    if state == 1:
+        return True, "Incoming call detected"
+    return False, f"No incoming call on {serial} within {timeout}s (last state={state}: 0=idle 1=ringing 2=offhook)"
 
 
 def answer_call(serial: str) -> Result:

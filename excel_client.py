@@ -213,7 +213,7 @@ class ExcelClient:
             # ── CALL TEST ──────────────────────────────────────────────
             ("SECTION", "CALL TEST — Phone1 calls Phone2, Phone2 answers, both record"),
             ("1",  "CALL",         "Phone1", "+97699002222", "",                     "",                  "CALL"),
-            ("2",  "ANSWER_CALL",  "Phone2", "",             "30",                   "Call answered",     "CALL"),
+            ("2",  "ANSWER_CALL",  "Phone2", "",             "5",                    "Call answered",     "CALL"),
             ("3",  "START_RECORD", "Phone1", "",             "recordings/p1_call.wav","",                 "CALL"),
             ("4",  "START_RECORD", "Phone2", "",             "recordings/p2_call.wav","",                 "CALL"),
             ("5",  "WAIT",         "Phone1", "10",           "",                     "",                  "CALL"),
