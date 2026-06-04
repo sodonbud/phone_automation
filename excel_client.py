@@ -223,7 +223,7 @@ class ExcelClient:
             # ── SMS TEST ───────────────────────────────────────────────
             ("SECTION", "SMS TEST — Phone1 sends SMS, verify it arrives on Phone2"),
             ("9",  "SMS",          "Phone1", "+97699002222", "Hello from Phone1",    "",                  "SMS"),
-            ("10", "WAIT",         "Phone1", "5",            "",                     "",                  "SMS"),
+            ("10", "WAIT",         "Phone1", "15",           "",                     "",                  "SMS"),
             ("11", "CHECK_SMS",    "Phone2", "+97699001111", "Hello from Phone1",    "Hello from Phone1", "SMS"),
             # ── USSD TEST ──────────────────────────────────────────────
             ("SECTION", "USSD TEST — Dial USSD on Phone1, capture network response"),
