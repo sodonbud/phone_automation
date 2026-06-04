@@ -195,15 +195,23 @@ class ExcelClient:
 
         # Example rows: one per action type
         examples = [
-            # Leave Expected Result blank for CALL/SMS/USSD — ADB only confirms the
-            # intent launched ("Starting: Intent {...}"), not that the action completed.
-            # Any successful launch is treated as PASS.
-            ["1", "CALL",       "Phone1", "+97699001122", "",              "",        "", "", "", ""],
-            ["2", "SMS",        "Phone1", "+97699001122", "Hello world",   "",        "", "", "", ""],
-            ["3", "USSD",       "Phone1", "*100#",        "",              "",        "", "", "", ""],
-            # For GET_CONFIG you can match the expected value in Expected Result.
-            ["4", "SET_CONFIG", "Phone1", "global/wifi_on", "1",           "",        "", "", "", ""],
-            ["5", "GET_CONFIG", "Phone1", "global/wifi_on", "",            "1",       "", "", "", ""],
+            # ── Call flow ──────────────────────────────────────────────────────────
+            # Phone1 calls Phone2 → Phone2 answers → both record → end call
+            ["1",  "CALL",         "Phone1", "+97699002222", "",                    "",                   "", "", "", ""],
+            ["2",  "ANSWER_CALL",  "Phone2", "",             "30",                  "Call answered",       "", "", "", ""],
+            ["3",  "START_RECORD", "Phone1", "",             "recordings/p1_call.mp4", "",                 "", "", "", ""],
+            ["4",  "START_RECORD", "Phone2", "",             "recordings/p2_call.mp4", "",                 "", "", "", ""],
+            ["5",  "WAIT",         "Phone1", "10",           "",                    "",                   "", "", "", ""],
+            ["6",  "END_CALL",     "Phone1", "",             "",                    "",                   "", "", "", ""],
+            ["7",  "STOP_RECORD",  "Phone1", "",             "recordings/p1_call.mp4", "",                 "", "", "", ""],
+            ["8",  "STOP_RECORD",  "Phone2", "",             "recordings/p2_call.mp4", "",                 "", "", "", ""],
+            # ── SMS flow ───────────────────────────────────────────────────────────
+            # Phone1 sends SMS → check it arrived on Phone2
+            ["9",  "SMS",          "Phone1", "+97699002222", "Hello from Phone1",   "",                   "", "", "", ""],
+            ["10", "WAIT",         "Phone1", "5",            "",                    "",                   "", "", "", ""],
+            ["11", "CHECK_SMS",    "Phone2", "+97699001111", "Hello from Phone1",   "Hello from Phone1",  "", "", "", ""],
+            # ── USSD flow ──────────────────────────────────────────────────────────
+            ["12", "USSD",         "Phone1", "*100#",        "",                    "",                   "", "", "", ""],
         ]
 
         data_align = Alignment(vertical="center")

@@ -65,7 +65,7 @@ def main() -> int:
     log.info("Starting test run | file=%s sheet=%s dry_run=%s", args.excel_file, args.sheet, args.dry_run)
 
     with ExcelClient(args.excel_file, args.sheet) as ec:
-        runner = TestRunner(ec, dry_run=args.dry_run, sheet_name=args.sheet)
+        runner = TestRunner(ec, dry_run=args.dry_run)
 
         # If a phone filter is set, patch DEVICES so only that phone is accessible
         if args.phone != "both":
