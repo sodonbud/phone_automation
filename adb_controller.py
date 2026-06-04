@@ -23,9 +23,11 @@ def _run(args: list[str], timeout: int = config.ADB_TIMEOUT) -> Result:
             cmd,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=timeout,
         )
-        output = (proc.stdout + proc.stderr).strip()
+        output = ((proc.stdout or "") + (proc.stderr or "")).strip()
         log.debug("ADB OUT: %s", output)
         return proc.returncode == 0, output
     except FileNotFoundError:
