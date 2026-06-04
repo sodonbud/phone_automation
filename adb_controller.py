@@ -337,78 +337,163 @@ def dial_ussd(serial: str, code: str) -> Result:
     return False, f"{out} | USSD sent but no response dialog detected."
 
 
-# Tracks background tinycap PIDs per serial so stop_call_recording can kill them
+# Tracks background tinycap PIDs per serial
 _tinycap_pids: dict[str, str] = {}
 
-# Remote path used for all recordings; pulled to local on stop
-_REMOTE_REC = "/sdcard/_automation_call_rec.wav"
+# ACR package name (Another Call Recorder)
+_ACR_PKG = "com.nll.acr"
+
+# OEM call-recording settings: (namespace, key, enable_value)
+_OEM_REC_SETTINGS = [
+    ("system", "call_recording_state",          "1"),   # generic
+    ("system", "voice_call_record",             "1"),   # some Samsung
+    ("system", "call_record_state",             "1"),   # Xiaomi
+    ("secure", "call_recording_automatic",      "1"),   # Oppo/OnePlus
+]
+
+
+def _tinycap_available(serial: str) -> bool:
+    ok, out = _run(_serial_args(serial) + ["shell", "which", "tinycap"])
+    return ok and bool(out.strip())
+
+
+def _acr_installed(serial: str) -> bool:
+    ok, out = _run(_serial_args(serial) + ["shell", "pm", "list", "packages", _ACR_PKG])
+    return ok and _ACR_PKG in out
+
+
+def _find_latest_recording(serial: str) -> str | None:
+    """Return device path of the most recently modified audio file in common recording dirs."""
+    search_dirs = [
+        "/sdcard/Recordings/Call",
+        "/sdcard/CallRecordings",
+        "/sdcard/MIUI/sound_recorder/call_rec",
+        "/sdcard/PhoneRecord",
+        "/sdcard/Android/data/com.nll.acr/files",   # ACR
+        "/sdcard/AudioRecorder",
+        "/sdcard/Sounds",
+        "/sdcard/Music",
+    ]
+    candidates = []
+    for d in search_dirs:
+        ok, out = _run(
+            _serial_args(serial)
+            + ["shell", "find", d, "-maxdepth", "2",
+               "\\(", "-name", "*.mp3", "-o", "-name", "*.mp4",
+               "-o", "-name", "*.m4a", "-o", "-name", "*.amr",
+               "-o", "-name", "*.3gp", "-o", "-name", "*.wav", "\\)"],
+            timeout=10,
+        )
+        if ok and out.strip():
+            candidates.extend(f.strip() for f in out.splitlines() if f.strip())
+    if not candidates:
+        return None
+    # Ask the device to sort by modification time and return the newest
+    ok, out = _run(_serial_args(serial) + ["shell", "ls", "-t"] + candidates)
+    if ok and out.strip():
+        return out.splitlines()[0].strip()
+    return candidates[0]
 
 
 def start_call_recording(serial: str) -> Result:
-    """Record call audio with zero human interaction using tinycap.
+    """Start fully-automated call audio recording.
 
-    Strategy:
-      1. Enable speakerphone via keyevent so the mic captures both voices.
-      2. Launch tinycap (built-in on AOSP/most Android) as a background shell
-         process and store its PID for a clean stop.
+    Priority:
+      1. tinycap  — low-level mic capture, works on AOSP/most stock ROMs
+      2. ACR      — Another Call Recorder (must be installed once via Play Store
+                    or: adb install ACR.apk).  No UI needed; ACR auto-records
+                    all calls; we send it a broadcast to mark the start.
+      3. OEM setting — try known per-OEM settings keys that auto-enable call
+                    recording for the next call (Samsung, Xiaomi, Oppo etc.)
+
+    Falls back gracefully with a clear message if none are available.
     """
     log = get_logger()
 
-    # Enable speakerphone so the microphone picks up both sides
-    _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_SPEAKERPHONE"])
-    time.sleep(1)
-
-    # Check tinycap is available
-    ok, out = _run(_serial_args(serial) + ["shell", "which", "tinycap"])
-    if not ok or not out.strip():
-        return False, (
-            "tinycap not found on this device. "
-            "It is present on most stock Android ROMs but absent on some OEM builds. "
-            "As a workaround install a call-recorder APK that accepts broadcast intents "
-            "(e.g. ACR — Another Call Recorder) and trigger it via adb shell am broadcast."
+    # ── 1. tinycap ────────────────────────────────────────────────────
+    if _tinycap_available(serial):
+        _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_SPEAKERPHONE"])
+        time.sleep(1)
+        bg_cmd = (
+            f'"{config.ADB_PATH}" -s {serial} shell '
+            f'"tinycap /sdcard/_automation_call_rec.wav '
+            f'-D 0 -d 0 -c 1 -r 16000 -b 16 >/dev/null 2>&1 & echo $!"'
         )
+        try:
+            proc = subprocess.run(bg_cmd, shell=True, capture_output=True, text=True, timeout=10)
+            pid = proc.stdout.strip()
+            if pid.isdigit():
+                _tinycap_pids[serial] = pid
+                log.info("tinycap recording started on %s PID=%s", serial, pid)
+                return True, f"Recording started via tinycap (PID {pid})"
+        except Exception as exc:  # noqa: BLE001
+            log.warning("tinycap launch error: %s", exc)
 
-    # Start tinycap in the background; capture its PID
-    # -D 0 = card 0, -d 0 = device 0, -c 1 = mono, -r 16000 = 16 kHz, -b 16 = 16-bit
-    bg_cmd = (
-        f'"{config.ADB_PATH}" -s {serial} shell '
-        f'"tinycap {_REMOTE_REC} -D 0 -d 0 -c 1 -r 16000 -b 16 '
-        f'>/dev/null 2>&1 & echo $!"'
+    # ── 2. ACR broadcast ─────────────────────────────────────────────
+    if _acr_installed(serial):
+        ok, out = _run(_serial_args(serial) + [
+            "shell", "am", "broadcast",
+            "-a", "com.nll.acr.MANUAL_RECORD",
+            "-n", f"{_ACR_PKG}/.receiver.RecordingReceiver",
+        ])
+        if ok:
+            log.info("ACR recording triggered on %s", serial)
+            return True, "Recording started via ACR"
+        log.warning("ACR broadcast failed: %s", out)
+
+    # ── 3. OEM settings key ──────────────────────────────────────────
+    for ns, key, val in _OEM_REC_SETTINGS:
+        ok, _ = _run(_serial_args(serial) + ["shell", "settings", "put", ns, key, val])
+        if ok:
+            log.info("OEM call-recording setting %s/%s=%s applied on %s", ns, key, val, serial)
+            return True, (
+                f"OEM call recording enabled ({ns}/{key}={val}). "
+                "Recording will be saved automatically by the dialer."
+            )
+
+    return False, (
+        "No recording method available on this device.\n"
+        "Options:\n"
+        "  A) Install ACR (Another Call Recorder) from the Play Store on this phone,\n"
+        "     then re-run — the tool will use it automatically.\n"
+        "  B) Manually enable call recording in Phone app → Settings → Call recording\n"
+        "     and use PULL_RECORDING action after the call to fetch the file."
     )
-    try:
-        proc = subprocess.run(bg_cmd, shell=True, capture_output=True, text=True, timeout=10)
-        pid = proc.stdout.strip()
-        if not pid.isdigit():
-            return False, f"tinycap started but PID not returned (got: {proc.stdout!r})"
-        _tinycap_pids[serial] = pid
-        log.info("tinycap recording started on %s (PID %s) → %s", serial, pid, _REMOTE_REC)
-        return True, f"Recording started (PID {pid}, speakerphone on)"
-    except Exception as exc:  # noqa: BLE001
-        return False, f"Error launching tinycap: {exc}"
 
 
 def stop_call_recording(serial: str, local_path: str) -> Result:
-    """Stop tinycap, pull the WAV file to *local_path*, and turn off speakerphone."""
+    """Stop recording and pull the audio file to *local_path*."""
     log = get_logger()
-    pid = _tinycap_pids.pop(serial, None)
-
-    if pid:
-        # SIGINT flushes the WAV header so the file is valid
-        _run(_serial_args(serial) + ["shell", "kill", "-INT", pid])
-        log.info("tinycap (PID %s) stopped on %s", pid, serial)
-    else:
-        log.warning("No tracked tinycap PID for %s — trying pkill", serial)
-        _run(_serial_args(serial) + ["shell", "pkill", "-INT", "tinycap"])
-
-    time.sleep(1)  # let the WAV header flush
-
-    # Turn speakerphone off now that recording is done
-    _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_SPEAKERPHONE"])
-
     os.makedirs(os.path.dirname(os.path.abspath(local_path)), exist_ok=True)
-    ok, out = _run(_serial_args(serial) + ["pull", _REMOTE_REC, local_path])
+
+    # ── tinycap stop ─────────────────────────────────────────────────
+    pid = _tinycap_pids.pop(serial, None)
+    if pid:
+        _run(_serial_args(serial) + ["shell", "kill", "-INT", pid])
+        time.sleep(1)
+        _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_SPEAKERPHONE"])
+        ok, out = _run(_serial_args(serial) + ["pull", "/sdcard/_automation_call_rec.wav", local_path])
+        if ok:
+            log.info("tinycap recording saved to '%s'", local_path)
+            return True, f"Recording saved to {local_path}"
+        return False, f"Pull failed: {out}"
+
+    # ── ACR stop ─────────────────────────────────────────────────────
+    if _acr_installed(serial):
+        _run(_serial_args(serial) + [
+            "shell", "am", "broadcast",
+            "-a", "com.nll.acr.MANUAL_RECORD",
+            "-n", f"{_ACR_PKG}/.receiver.RecordingReceiver",
+        ])
+        time.sleep(2)
+
+    # ── Pull most recent file (ACR or OEM dialer) ────────────────────
+    remote = _find_latest_recording(serial)
+    if not remote:
+        return False, "Could not locate a recording file on the device."
+    ok, out = _run(_serial_args(serial) + ["pull", remote, local_path])
     if ok:
-        log.info("Recording pulled to '%s'", local_path)
+        log.info("Recording pulled from '%s' to '%s'", remote, local_path)
         return True, f"Recording saved to {local_path}"
     return False, f"Pull failed: {out}"
 
