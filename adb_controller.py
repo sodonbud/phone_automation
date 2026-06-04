@@ -195,21 +195,25 @@ def wait_for_incoming_call(serial: str, timeout: int = 5) -> Result:
 
 
 def answer_call(serial: str) -> Result:
-    """Answer an incoming call — tries UI tap first, falls back to CALL keyevent."""
+    """Answer an incoming call — no UI interaction needed.
+
+    Priority:
+      1. telecom accept-ringing-call  (Android 6+, most reliable)
+      2. KEYCODE_CALL keyevent         (universal fallback)
+    """
     log = get_logger()
-    coords = _find_answer_button(serial)
-    if coords:
-        x, y = coords
-        ok, out = _run(_serial_args(serial) + ["shell", "input", "tap", str(x), str(y)])
-        if ok:
-            log.info("Answer button tapped at (%d, %d)", x, y)
-            return True, f"Call answered (tapped {x},{y})"
-        return False, f"Answer tap failed: {out}"
-    # Fallback: swipe from left to right (common answer gesture on stock Android)
-    log.warning("Answer button not found — trying CALL keyevent fallback")
+
+    # Primary: telecom service command — works regardless of dialer UI
+    ok, out = _run(_serial_args(serial) + ["shell", "telecom", "accept-ringing-call"])
+    if ok:
+        log.info("Call answered via telecom accept-ringing-call on %s", serial)
+        return True, "Call answered (telecom)"
+
+    # Fallback: CALL keyevent
+    log.warning("telecom accept-ringing-call failed (%s) — trying KEYCODE_CALL", out)
     ok, out = _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_CALL"])
     if ok:
-        return True, "Call answered via CALL keyevent"
+        return True, "Call answered via KEYCODE_CALL"
     return False, f"Could not answer call: {out}"
 
 
