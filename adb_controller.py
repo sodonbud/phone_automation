@@ -160,34 +160,64 @@ def get_connected_devices() -> list[str]:
     return serials
 
 
+def _get_screen_size(serial: str) -> tuple[int, int]:
+    """Return (width, height) of the device screen."""
+    ok, out = _run(_serial_args(serial) + ["shell", "wm", "size"])
+    m = re.search(r"(\d+)x(\d+)", out)
+    if m:
+        return int(m.group(1)), int(m.group(2))
+    return 1080, 2400  # safe default
+
+
 def wake_and_unlock(serial: str) -> Result:
     """Wake the screen and dismiss the keyguard so ADB commands take effect.
 
-    Safe to call even if the screen is already on and unlocked.
+    Handles stock Android and Xiaomi HyperOS/MIUI which blocks wm dismiss-keyguard.
     Does NOT bypass PIN/password — only works with swipe/no lock screen.
     """
     log = get_logger()
 
-    # Check current screen state
+    # ── 1. Wake the screen ────────────────────────────────────────────
     ok, out = _run(_serial_args(serial) + ["shell", "dumpsys", "power"])
     screen_on = "mWakefulness=Awake" in out or "mHoldingDisplaySuspendBlocker=true" in out
-
     if not screen_on:
         _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_WAKEUP"])
         time.sleep(1)
         log.info("Screen woken on %s", serial)
 
-    # Dismiss keyguard (works only when no PIN/password is set)
+    # ── 2. Dismiss keyguard ───────────────────────────────────────────
+    # Standard Android
     _run(_serial_args(serial) + ["shell", "wm", "dismiss-keyguard"])
 
-    # Swipe up as a fallback unlock gesture
-    ok2, res = _run(_serial_args(serial) + ["shell", "dumpsys", "window"])
+    # Xiaomi HyperOS / MIUI: wm dismiss-keyguard is blocked.
+    # Use the am start trick to force the keyguard away.
+    ok, out = _run(_serial_args(serial) + [
+        "shell", "am", "start", "-n",
+        "com.miui.securityadd/.MainSecurityActivity",
+    ])
+    # That may fail on non-Xiaomi — ignore the error and check lock state.
+
+    # ── 3. Check if still locked and swipe to unlock ──────────────────
+    _, res = _run(_serial_args(serial) + ["shell", "dumpsys", "window"])
     locked = "mDreamingLockscreen=true" in res or "isStatusBarKeyguard=true" in res
     if locked:
-        # Swipe up from bottom-centre to dismiss lock screen
-        _run(_serial_args(serial) + ["shell", "input", "swipe", "540", "1600", "540", "800", "300"])
+        w, h = _get_screen_size(serial)
+        cx = w // 2
+        # Swipe upward from 80 % height to 30 % height
+        y_start = int(h * 0.80)
+        y_end   = int(h * 0.30)
+        _run(_serial_args(serial) + [
+            "shell", "input", "swipe",
+            str(cx), str(y_start), str(cx), str(y_end), "300",
+        ])
         time.sleep(0.5)
-        log.info("Lock screen swipe performed on %s", serial)
+        log.info("Swipe-to-unlock performed on %s (%dx%d)", serial, w, h)
+
+    # ── 4. Xiaomi HyperOS: ensure ADB input is trusted ───────────────
+    # HyperOS may pop up a "USB debugging active" notification that steals focus.
+    # Pressing HOME then BACK clears transient overlays.
+    _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_HOME"])
+    time.sleep(0.3)
 
     return True, "Screen ready"
 
@@ -245,12 +275,31 @@ def answer_call(serial: str) -> Result:
         log.info("Call answered via telecom accept-ringing-call on %s", serial)
         return True, "Call answered (telecom)"
 
-    # Fallback: CALL keyevent
+    # Fallback 1: KEYCODE_CALL
     log.warning("telecom accept-ringing-call failed (%s) — trying KEYCODE_CALL", out)
     ok, out = _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_CALL"])
     if ok:
-        return True, "Call answered via KEYCODE_CALL"
-    return False, f"Could not answer call: {out}"
+        # Verify the call actually moved to OFFHOOK state
+        time.sleep(1)
+        if _get_call_state(serial) == 2:
+            return True, "Call answered via KEYCODE_CALL"
+
+    # Fallback 2: Xiaomi HyperOS / MIUI — tap the green answer button by coordinates
+    # derived from screen size so it works on any resolution
+    log.warning("KEYCODE_CALL did not answer — trying Xiaomi coordinate tap")
+    w, h = _get_screen_size(serial)
+    # On MIUI/HyperOS the green answer button sits at ~25% from left, ~75% from top
+    ax, ay = int(w * 0.25), int(h * 0.75)
+    _run(_serial_args(serial) + ["shell", "input", "tap", str(ax), str(ay)])
+    time.sleep(1)
+    if _get_call_state(serial) == 2:
+        return True, f"Call answered via coordinate tap ({ax},{ay})"
+
+    return False, (
+        "Could not answer call automatically. "
+        "On Xiaomi HyperOS go to: Settings → Additional settings → Developer options → "
+        "enable 'Disable permission monitoring' and 'USB debugging (Security settings)'."
+    )
 
 
 def send_sms(serial: str, number: str, message: str) -> Result:
