@@ -1,6 +1,6 @@
 DEVICES = {
     "Phone1": "RF8Y606FYXX",
-    "Phone2": "SERIAL_B",
+    "Phone2": "4B270DLAQ003DE",
 }
 
 EXCEL_PATH = "test_cases.xlsx"
