@@ -1,6 +1,6 @@
 DEVICES = {
-    "Phone1": "SERIAL_A",
-    "Phone2": "SERIAL_B",
+    "Phone1": "SERIAL_A",  # replace with your actual serial from `adb devices`
+    # "Phone2": "SERIAL_B",  # uncomment when you add a second phone
 }
 
 EXCEL_PATH = "test_cases.xlsx"
