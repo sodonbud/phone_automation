@@ -97,15 +97,13 @@ class TestRunner:
                 return False, f"GET_CONFIG needs 'namespace/key' in Number/Code, got '{number_code}'"
             return adb.get_config(serial, namespace, key)
 
-        # ── Screen/audio recording ───────────────────────────────────
+        # ── Voice recording (in-call Record button) ──────────────────
         if action == "START_RECORD":
-            # Value = local destination path, e.g. recordings/phone1.mp4
-            local_path = value or f"recordings/{target}_{datetime.now().strftime('%H%M%S')}.mp4"
-            return adb.start_recording(serial, remote_path="/sdcard/_automation_record.mp4")
+            return adb.start_call_recording(serial)
 
         if action == "STOP_RECORD":
-            local_path = value or f"recordings/{target}_{datetime.now().strftime('%H%M%S')}.mp4"
-            return adb.stop_recording(serial, local_path=local_path)
+            local_path = value or f"recordings/{target}_{datetime.now().strftime('%H%M%S')}.mp3"
+            return adb.stop_call_recording(serial, local_path=local_path)
 
         # ── Pause ────────────────────────────────────────────────────
         if action == "WAIT":

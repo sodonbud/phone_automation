@@ -13,9 +13,6 @@ from logger import get_logger
 
 Result = Tuple[bool, str]
 
-# Tracks background screenrecord PIDs keyed by serial
-_recording_pids: dict[str, str] = {}
-
 
 def _run(args: list[str], timeout: int = config.ADB_TIMEOUT) -> Result:
     log = get_logger()
@@ -340,62 +337,99 @@ def dial_ussd(serial: str, code: str) -> Result:
     return False, f"{out} | USSD sent but no response dialog detected."
 
 
-def start_recording(serial: str, remote_path: str = "/sdcard/_automation_record.mp4") -> Result:
-    """Start screenrecord in the background on *serial*. Call stop_recording() to finish.
+def _find_record_button(serial: str) -> tuple[int, int] | None:
+    """Find the in-call Record button in the dialer UI."""
+    root = _dump_ui_tree(serial)
+    if root is None:
+        return None
+    keywords = {"record", "recording", "rec", "записать", "grabar"}
+    id_suffixes = {":record_button", "/record_button", ":record", "/record",
+                   ":incall_record", "/incall_record"}
+    coords = _find_clickable(root, keywords, id_suffixes)
+    if coords:
+        get_logger().debug("Record button found at %s", coords)
+    return coords
 
-    Note: screenrecord captures video. Audio during calls is recorded if the device
-    supports --audio (Android 10+). The file is pulled to the host by stop_recording().
-    """
+
+def _find_latest_call_recording(serial: str) -> str | None:
+    """Return the remote path of the most recently modified call recording file."""
     log = get_logger()
-    if serial in _recording_pids:
-        return False, f"Recording already in progress on {serial} (PID {_recording_pids[serial]})"
+    # Common directories where dialers save call recordings
+    search_dirs = [
+        "/sdcard/Recordings/Call",
+        "/sdcard/MIUI/sound_recorder/call_rec",
+        "/sdcard/CallRecordings",
+        "/sdcard/PhoneRecord",
+        "/sdcard/Sounds",
+        "/sdcard/Music",
+        "/sdcard/DCIM",
+        "/sdcard/",
+    ]
+    for d in search_dirs:
+        ok, out = _run(_serial_args(serial) + [
+            "shell", "find", d, "-maxdepth", "2",
+            "-name", "*.mp3", "-o", "-name", "*.mp4",
+            "-o", "-name", "*.m4a", "-o", "-name", "*.amr",
+            "-o", "-name", "*.3gp",
+        ], timeout=10)
+        if ok and out.strip():
+            # Pick the most recently modified file
+            files = [f.strip() for f in out.splitlines() if f.strip()]
+            if files:
+                # Sort by modification time on device
+                ok2, newest = _run(_serial_args(serial) + [
+                    "shell", "ls", "-t"
+                ] + files)
+                if ok2 and newest.strip():
+                    result = newest.splitlines()[0].strip()
+                    log.debug("Latest recording candidate: %s", result)
+                    return result
+    return None
 
-    # Run screenrecord as a background shell process and capture its PID
-    bg_cmd = (
-        f"{config.ADB_PATH} -s {serial} shell "
-        f"\"screenrecord --verbose {remote_path} >/dev/null 2>&1 & echo $!\""
+
+def start_call_recording(serial: str) -> Result:
+    """Tap the Record button in the active in-call screen to start voice recording."""
+    log = get_logger()
+    coords = _find_record_button(serial)
+    if coords:
+        x, y = coords
+        ok, out = _run(_serial_args(serial) + ["shell", "input", "tap", str(x), str(y)])
+        if ok:
+            log.info("Record button tapped at (%d, %d) on %s", x, y, serial)
+            return True, f"Call recording started (tapped {x},{y})"
+        return False, f"Record button tap failed: {out}"
+    return False, (
+        "Record button not found in dialer UI. "
+        "Make sure call recording is enabled in your dialer settings "
+        "(Phone app → Settings → Call recording → Always record / Auto record)."
     )
-    try:
-        proc = subprocess.run(bg_cmd, shell=True, capture_output=True, text=True, timeout=10)
-        pid = proc.stdout.strip()
-        if not pid.isdigit():
-            # Try without --verbose (older Android)
-            bg_cmd2 = (
-                f"{config.ADB_PATH} -s {serial} shell "
-                f"\"screenrecord {remote_path} >/dev/null 2>&1 & echo $!\""
-            )
-            proc = subprocess.run(bg_cmd2, shell=True, capture_output=True, text=True, timeout=10)
-            pid = proc.stdout.strip()
-        if not pid.isdigit():
-            return False, f"Failed to start screenrecord (output: {proc.stdout!r})"
-        _recording_pids[serial] = pid
-        log.info("Recording started on %s (PID %s) → %s", serial, pid, remote_path)
-        return True, f"Recording started (PID {pid})"
-    except Exception as exc:  # noqa: BLE001
-        return False, f"Error starting recording: {exc}"
 
 
-def stop_recording(serial: str, local_path: str) -> Result:
-    """Stop the background screenrecord on *serial* and pull the file to *local_path*."""
+def stop_call_recording(serial: str, local_path: str) -> Result:
+    """Tap Record again to stop, then pull the saved audio file to *local_path*."""
     log = get_logger()
-    pid = _recording_pids.pop(serial, None)
-    remote_path = "/sdcard/_automation_record.mp4"
 
-    if pid:
-        # SIGINT causes screenrecord to finalise the mp4 before exiting
-        _run(_serial_args(serial) + ["shell", "kill", "-INT", pid])
-        time.sleep(2)  # give it time to write the file trailer
+    # Tap Record button again to stop
+    coords = _find_record_button(serial)
+    if coords:
+        x, y = coords
+        _run(_serial_args(serial) + ["shell", "input", "tap", str(x), str(y)])
+        log.info("Record button tapped again to stop on %s", serial)
     else:
-        # No tracked PID — try killing by name
-        log.warning("No tracked recording PID for %s; killing screenrecord by name", serial)
-        _run(_serial_args(serial) + ["shell", "pkill", "-INT", "screenrecord"])
-        time.sleep(2)
+        log.warning("Record stop button not found on %s — recording may still be running", serial)
 
-    os.makedirs(os.path.dirname(local_path) if os.path.dirname(local_path) else ".", exist_ok=True)
+    # Give the app a moment to flush the file
+    time.sleep(2)
+
+    remote_path = _find_latest_call_recording(serial)
+    if not remote_path:
+        return False, "Recording stopped but could not locate the saved file on device."
+
+    os.makedirs(os.path.dirname(os.path.abspath(local_path)), exist_ok=True)
     ok, out = _run(_serial_args(serial) + ["pull", remote_path, local_path])
     if ok:
-        log.info("Recording saved to '%s'", local_path)
-        return True, f"Recording saved to {local_path}"
+        log.info("Call recording pulled to '%s'", local_path)
+        return True, f"Recording saved to {local_path} (from {remote_path})"
     return False, f"Pull failed: {out}"
 
 
