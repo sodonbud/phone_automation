@@ -419,7 +419,7 @@ def check_sms_received(serial: str, from_number: str, expected_text: str = "", t
         for uri in ["content://sms/inbox", "content://sms"]:
             ok, out = _run(
                 _serial_args(serial)
-                + ["shell", "content", "query", "--uri", uri, "--sort", "date DESC"]
+                + ["shell", "content", "query", "--uri", uri]
             )
             if ok and "Row:" in out:
                 raw = out
