@@ -176,8 +176,50 @@ def send_sms(serial: str, number: str, message: str) -> Result:
     return False, f"{out} | Send button not found; tried ENTER fallback. Check the screen manually."
 
 
+def _read_ussd_response(serial: str, wait_secs: int = 10) -> str | None:
+    """Poll the UI until a USSD response dialog appears, then return its message text.
+
+    Android shows the USSD reply in an AlertDialog / system popup. We recognise it
+    by looking for a non-empty TextView that is NOT the USSD code itself and sits
+    inside a window whose package is the telephony framework or the dialer.
+    """
+    log = get_logger()
+    # Known resource-ids that carry the USSD response body
+    response_ids = {
+        "android:id/message",
+        "com.android.phone:id/message",
+        "com.google.android.dialer:id/ussd_response",
+    }
+    deadline = time.time() + wait_secs
+    while time.time() < deadline:
+        time.sleep(2)
+        root = _dump_ui_tree(serial)
+        if root is None:
+            continue
+        for node in root.iter("node"):
+            res_id = node.get("resource-id") or ""
+            text = (node.get("text") or "").strip()
+            # Match by known resource-id
+            if res_id in response_ids and text:
+                log.info("USSD response via resource-id '%s': %s", res_id, text)
+                return text
+        # Broader fallback: any visible TextView in a telephony/dialer package
+        # that contains digits or common USSD reply patterns
+        for node in root.iter("node"):
+            pkg = node.get("package") or ""
+            cls = node.get("class") or ""
+            text = (node.get("text") or "").strip()
+            if (
+                "phone" in pkg or "dialer" in pkg or "telephony" in pkg
+            ) and "TextView" in cls and text and len(text) > 3:
+                log.info("USSD response (fallback match, pkg=%s): %s", pkg, text)
+                return text
+    log.warning("USSD response dialog not detected within %ds", wait_secs)
+    return None
+
+
 def dial_ussd(serial: str, code: str) -> Result:
-    """Open the dialer pre-filled with a USSD/MMI code then tap the call button."""
+    """Dial a USSD code and return the network's response text."""
     log = get_logger()
     encoded = urllib.parse.quote(code, safe="*+")
     uri = f"tel:{encoded}"
@@ -188,21 +230,25 @@ def dial_ussd(serial: str, code: str) -> Result:
     if not ok:
         return False, out
 
+    # Wait for dialer to render, then tap call button
     time.sleep(2)
-
     coords = _find_call_button(serial)
     if coords:
         x, y = coords
         tap_ok, tap_out = _run(_serial_args(serial) + ["shell", "input", "tap", str(x), str(y)])
-        if tap_ok:
-            log.info("USSD call button tapped at (%d, %d)", x, y)
-            return True, f"{out} | Call tapped at ({x},{y})"
-        return False, f"Tap failed: {tap_out}"
+        if not tap_ok:
+            return False, f"Call button tap failed: {tap_out}"
+        log.info("USSD call button tapped at (%d, %d)", x, y)
+    else:
+        # Fallback: CALL keyevent (keycode 5)
+        log.warning("Call button not found — trying CALL keyevent fallback")
+        _run(_serial_args(serial) + ["shell", "input", "keyevent", "5"])
 
-    # Fallback: CALL keyevent (keycode 5)
-    log.warning("Call button not found in UI dump — trying CALL keyevent as fallback")
-    _run(_serial_args(serial) + ["shell", "input", "keyevent", "5"])
-    return False, f"{out} | Call button not found; tried CALL keyevent fallback. Check screen manually."
+    # Wait for and capture the USSD response dialog
+    response = _read_ussd_response(serial, wait_secs=15)
+    if response:
+        return True, response
+    return False, f"{out} | USSD sent but no response dialog detected. Check screen manually."
 
 
 def set_config(serial: str, namespace: str, key: str, value: str) -> Result:
