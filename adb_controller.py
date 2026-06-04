@@ -94,16 +94,36 @@ def _find_send_button(serial: str) -> tuple[int, int] | None:
 
 
 def _find_call_button(serial: str) -> tuple[int, int] | None:
+    """Find the dialpad call/send button, preferring buttons in the bottom half of the screen
+    to avoid accidentally matching contacts or recent-calls icons at the top."""
     root = _dump_ui_tree(serial)
     if root is None:
         return None
+    _, h = _get_screen_size(serial)
+    mid_y = h // 2
     keywords = {"call", "dial", "voice call", "дозвониться", "llamar"}
     id_suffixes = {":fab", "/fab", ":call_button", "/call_button",
-                   ":dialpad_floating_action_button", "/dialpad_floating_action_button",
-                   ":call", "/call"}
+                   ":dialpad_floating_action_button", "/dialpad_floating_action_button"}
+    # First pass: bottom-half only (avoids top-bar icons)
+    for node in root.iter("node"):
+        if node.get("clickable") != "true":
+            continue
+        text  = (node.get("text") or "").lower()
+        desc  = (node.get("content-desc") or "").lower()
+        res   = (node.get("resource-id") or "").lower()
+        id_ok = any(res.endswith(s) for s in id_suffixes)
+        if text in keywords or desc in keywords or id_ok:
+            nums = re.findall(r"\d+", node.get("bounds", ""))
+            if len(nums) == 4:
+                cx = (int(nums[0]) + int(nums[2])) // 2
+                cy = (int(nums[1]) + int(nums[3])) // 2
+                if cy >= mid_y:
+                    get_logger().debug("Call button found at (%d,%d)", cx, cy)
+                    return cx, cy
+    # Second pass: anywhere (fallback)
     coords = _find_clickable(root, keywords, id_suffixes)
     if coords:
-        get_logger().debug("Call button found at %s", coords)
+        get_logger().debug("Call button found (any position) at %s", coords)
     return coords
 
 
@@ -330,21 +350,36 @@ def answer_call(serial: str) -> Result:
 
 
 def send_sms(serial: str, number: str, message: str) -> Result:
-    """Open the SMS composer, pre-fill number + body, then tap the Send button."""
+    """Open the SMS composer, pre-fill number + body, then tap the Send button.
+
+    Tries smsto: then sms: URI schemes for compatibility with Samsung/Pixel/AOSP.
+    """
     log = get_logger()
-    uri = f"smsto:{urllib.parse.quote(number)}"
-    ok, out = _run(
-        _serial_args(serial)
-        + [
-            "shell", "am", "start",
-            "-a", "android.intent.action.SENDTO",
-            "-d", uri,
-            "--es", "sms_body", message,
-            "--ez", "exit_on_sent", "true",
-        ]
-    )
-    if not ok:
-        return False, out
+    encoded_number = urllib.parse.quote(number)
+
+    # Try smsto: first (standard), then sms: (Samsung Messages / Google Messages fallback)
+    launched = False
+    last_out = ""
+    for uri in [f"smsto:{encoded_number}", f"sms:{encoded_number}"]:
+        ok, out = _run(
+            _serial_args(serial)
+            + [
+                "shell", "am", "start",
+                "-a", "android.intent.action.SENDTO",
+                "-d", uri,
+                "--es", "sms_body", message,
+                "--ez", "exit_on_sent", "true",
+            ]
+        )
+        last_out = out
+        if ok and "Error" not in out and "unable to resolve" not in out.lower():
+            launched = True
+            log.info("SMS composer opened with URI %s", uri)
+            break
+        log.warning("URI %s failed: %s", uri, out)
+
+    if not launched:
+        return False, f"Could not open SMS composer: {last_out}"
 
     time.sleep(2)
 
@@ -354,12 +389,12 @@ def send_sms(serial: str, number: str, message: str) -> Result:
         tap_ok, tap_out = _run(_serial_args(serial) + ["shell", "input", "tap", str(x), str(y)])
         if tap_ok:
             log.info("SMS Send button tapped at (%d, %d)", x, y)
-            return True, f"{out} | Send tapped at ({x},{y})"
+            return True, f"SMS sent | Send tapped at ({x},{y})"
         return False, f"Tap failed: {tap_out}"
 
     log.warning("Send button not found — trying ENTER keyevent fallback")
     _run(_serial_args(serial) + ["shell", "input", "keyevent", "66"])
-    return False, f"{out} | Send button not found; tried ENTER fallback."
+    return True, f"{last_out} | Send button not found; tried ENTER fallback."
 
 
 def check_sms_received(serial: str, from_number: str, expected_text: str = "") -> Result:
@@ -424,11 +459,15 @@ def _read_ussd_response(serial: str, wait_secs: int = 15) -> str | None:
                 log.info("USSD response via resource-id '%s': %s", res_id, text)
                 return text
         # Broader fallback: TextView in telephony/dialer package
+        # Exclude transient dialer state strings that are NOT USSD responses
+        not_ussd = {"calling", "calling...", "calling…", "connecting",
+                    "dialing", "ringing", "on hold", "disconnected", ""}
         for node in root.iter("node"):
             pkg = node.get("package") or ""
             cls = node.get("class") or ""
             text = (node.get("text") or "").strip()
-            if ("phone" in pkg or "dialer" in pkg) and "TextView" in cls and len(text) > 3:
+            if (("phone" in pkg or "dialer" in pkg) and "TextView" in cls
+                    and len(text) > 5 and text.lower() not in not_ussd):
                 log.info("USSD response (fallback pkg=%s): %s", pkg, text)
                 return text
     log.warning("USSD response dialog not detected within %ds", wait_secs)
@@ -491,16 +530,20 @@ def _acr_installed(serial: str) -> bool:
 
 
 def _find_latest_recording(serial: str) -> str | None:
-    """Return device path of the most recently modified audio file in common recording dirs."""
+    """Return device path of the most recently modified call-recording audio file.
+
+    Only searches known call-recording directories, intentionally excluding
+    /sdcard/Music and /sdcard/Ringtones to avoid picking up ringtone files.
+    """
     search_dirs = [
-        "/sdcard/Recordings/Call",
+        "/sdcard/Recordings/Call",          # Samsung, stock Android
+        "/sdcard/Call",
         "/sdcard/CallRecordings",
         "/sdcard/MIUI/sound_recorder/call_rec",
         "/sdcard/PhoneRecord",
-        "/sdcard/Android/data/com.nll.acr/files",   # ACR
-        "/sdcard/AudioRecorder",
-        "/sdcard/Sounds",
-        "/sdcard/Music",
+        "/sdcard/Android/data/com.nll.acr/files",  # ACR
+        "/sdcard/Android/data/com.samsung.android.incallui/files",
+        "/sdcard/Recordings",               # broad Samsung fallback (not Music)
     ]
     candidates = []
     for d in search_dirs:
@@ -516,7 +559,6 @@ def _find_latest_recording(serial: str) -> str | None:
             candidates.extend(f.strip() for f in out.splitlines() if f.strip())
     if not candidates:
         return None
-    # Ask the device to sort by modification time and return the newest
     ok, out = _run(_serial_args(serial) + ["shell", "ls", "-t"] + candidates)
     if ok and out.strip():
         return out.splitlines()[0].strip()

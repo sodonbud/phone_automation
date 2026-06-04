@@ -161,6 +161,10 @@ class ExcelClient:
         # Persist immediately so a crash doesn't lose earlier results
         try:
             self._wb.save(self._path)
+        except PermissionError:
+            self.log.error(
+                "Cannot save '%s' — close the file in Excel first, then re-run.", self._path
+            )
         except Exception as exc:
             self.log.error("Failed to save after row %d: %s", row_index, exc)
 
