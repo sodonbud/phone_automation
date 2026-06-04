@@ -146,17 +146,28 @@ def _find_answer_button(serial: str) -> tuple[int, int] | None:
 def _get_call_state(serial: str) -> int:
     """Return telephony call state: 0=IDLE, 1=RINGING, 2=OFFHOOK.
 
-    Uses dumpsys telephony.registry which is reliable on all Android versions.
+    Checks all SIM slots via telephony.registry (takes the highest/non-idle state)
+    and falls back to dumpsys telecom for Pixel/AOSP where registry may not update.
     """
+    # ── Method 1: telephony.registry — all mCallState lines ─────────
     ok, out = _run(_serial_args(serial) + ["shell", "dumpsys", "telephony.registry"])
-    if not ok:
-        return 0
-    for line in out.splitlines():
-        line = line.strip()
-        if "mCallState" in line:
-            m = re.search(r"mCallState=(\d)", line)
-            if m:
-                return int(m.group(1))
+    if ok:
+        states = [int(m.group(1)) for m in re.finditer(r"mCallState=(\d)", out)]
+        if states:
+            best = max(states)  # non-idle (1 or 2) wins over 0
+            if best > 0:
+                return best
+
+    # ── Method 2: dumpsys telecom ────────────────────────────────────
+    ok, out = _run(_serial_args(serial) + ["shell", "dumpsys", "telecom"])
+    if ok:
+        # Look for active call entries: "state: RINGING" or "state: ACTIVE"
+        out_lower = out.lower()
+        if "state: ringing" in out_lower or "ringing" in out_lower and "call" in out_lower:
+            return 1
+        if "state: active" in out_lower or "state: dialing" in out_lower or "offhook" in out_lower:
+            return 2
+
     return 0
 
 
