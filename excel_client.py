@@ -170,58 +170,113 @@ class ExcelClient:
 
     @staticmethod
     def create_template(file_path: str, sheet_name: str = "TestCases") -> None:
-        """Write a ready-to-use template workbook to *file_path*."""
+        """Write a ready-to-use test sheet to *file_path*."""
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = sheet_name
 
-        # Header styling
-        header_font = Font(bold=True, color="FFFFFF")
-        header_fill = PatternFill("solid", fgColor="4472C4")
+        # ── Styles ────────────────────────────────────────────────────
+        header_font  = Font(bold=True, color="FFFFFF")
+        header_fill  = PatternFill("solid", fgColor="4472C4")
         header_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
+        section_font  = Font(bold=True, color="FFFFFF")
+        section_fills = {
+            "CALL": PatternFill("solid", fgColor="375623"),   # dark green
+            "SMS" : PatternFill("solid", fgColor="1F4E79"),   # dark blue
+            "USSD": PatternFill("solid", fgColor="7B2C2C"),   # dark red
+        }
+
+        row_fill_a = PatternFill("solid", fgColor="EBF3E8")   # light green
+        row_fill_b = PatternFill("solid", fgColor="DDEEFF")   # light blue
+        row_fill_u = PatternFill("solid", fgColor="FFF2CC")   # light yellow
+
+        center = Alignment(horizontal="center", vertical="center")
+        left   = Alignment(horizontal="left",   vertical="center", wrap_text=True)
+
+        # ── Header row ────────────────────────────────────────────────
         for col_idx, name in enumerate(COLUMNS, start=1):
             cell = ws.cell(row=1, column=col_idx, value=name)
-            cell.font = header_font
-            cell.fill = header_fill
+            cell.font      = header_font
+            cell.fill      = header_fill
             cell.alignment = header_align
+        ws.row_dimensions[1].height = 28
 
-        ws.row_dimensions[1].height = 30
-
-        # Column widths
-        widths = [6, 12, 14, 20, 20, 30, 30, 10, 30, 20]
+        # ── Column widths ─────────────────────────────────────────────
+        widths = [5, 14, 12, 22, 24, 28, 28, 10, 32, 20]
         for col_idx, width in enumerate(widths, start=1):
             ws.column_dimensions[get_column_letter(col_idx)].width = width
 
-        # Example rows: one per action type
-        examples = [
-            # ── Call flow ──────────────────────────────────────────────────────────
-            # Phone1 calls Phone2 → Phone2 answers → both record → end call
-            ["1",  "CALL",         "Phone1", "+97699002222", "",                    "",                   "", "", "", ""],
-            ["2",  "ANSWER_CALL",  "Phone2", "",             "30",                  "Call answered",       "", "", "", ""],
-            ["3",  "START_RECORD", "Phone1", "",             "recordings/p1_call.mp4", "",                 "", "", "", ""],
-            ["4",  "START_RECORD", "Phone2", "",             "recordings/p2_call.mp4", "",                 "", "", "", ""],
-            ["5",  "WAIT",         "Phone1", "10",           "",                    "",                   "", "", "", ""],
-            ["6",  "END_CALL",     "Phone1", "",             "",                    "",                   "", "", "", ""],
-            ["7",  "STOP_RECORD",  "Phone1", "",             "recordings/p1_call.mp4", "",                 "", "", "", ""],
-            ["8",  "STOP_RECORD",  "Phone2", "",             "recordings/p2_call.mp4", "",                 "", "", "", ""],
-            # ── SMS flow ───────────────────────────────────────────────────────────
-            # Phone1 sends SMS → check it arrived on Phone2
-            ["9",  "SMS",          "Phone1", "+97699002222", "Hello from Phone1",   "",                   "", "", "", ""],
-            ["10", "WAIT",         "Phone1", "5",            "",                    "",                   "", "", "", ""],
-            ["11", "CHECK_SMS",    "Phone2", "+97699001111", "Hello from Phone1",   "Hello from Phone1",  "", "", "", ""],
-            # ── USSD flow ──────────────────────────────────────────────────────────
-            ["12", "USSD",         "Phone1", "*100#",        "",                    "",                   "", "", "", ""],
+        # ── Data rows definition ──────────────────────────────────────
+        # fmt: (step, action, target, number_code, value, expected, section)
+        rows = [
+            # ── CALL TEST ──────────────────────────────────────────────
+            ("SECTION", "CALL TEST — Phone1 calls Phone2, Phone2 answers, both record"),
+            ("1",  "CALL",         "Phone1", "+97699002222", "",                     "",                  "CALL"),
+            ("2",  "ANSWER_CALL",  "Phone2", "",             "30",                   "Call answered",     "CALL"),
+            ("3",  "START_RECORD", "Phone1", "",             "recordings/p1_call.wav","",                 "CALL"),
+            ("4",  "START_RECORD", "Phone2", "",             "recordings/p2_call.wav","",                 "CALL"),
+            ("5",  "WAIT",         "Phone1", "10",           "",                     "",                  "CALL"),
+            ("6",  "END_CALL",     "Phone1", "",             "",                     "",                  "CALL"),
+            ("7",  "STOP_RECORD",  "Phone1", "",             "recordings/p1_call.wav","",                 "CALL"),
+            ("8",  "STOP_RECORD",  "Phone2", "",             "recordings/p2_call.wav","",                 "CALL"),
+            # ── SMS TEST ───────────────────────────────────────────────
+            ("SECTION", "SMS TEST — Phone1 sends SMS, verify it arrives on Phone2"),
+            ("9",  "SMS",          "Phone1", "+97699002222", "Hello from Phone1",    "",                  "SMS"),
+            ("10", "WAIT",         "Phone1", "5",            "",                     "",                  "SMS"),
+            ("11", "CHECK_SMS",    "Phone2", "+97699001111", "Hello from Phone1",    "Hello from Phone1", "SMS"),
+            # ── USSD TEST ──────────────────────────────────────────────
+            ("SECTION", "USSD TEST — Dial USSD on Phone1, capture network response"),
+            ("12", "USSD",         "Phone1", "*100#",        "",                     "",                  "USSD"),
         ]
 
-        data_align = Alignment(vertical="center")
-        for row_idx, row_data in enumerate(examples, start=2):
-            for col_idx, val in enumerate(row_data, start=1):
-                cell = ws.cell(row=row_idx, column=col_idx, value=val)
-                cell.alignment = data_align
+        # ── Notes for each action ─────────────────────────────────────
+        action_notes = {
+            "CALL":         "Phone1 dials Phone2. Leave Expected Result blank.",
+            "ANSWER_CALL":  "Waits up to Value(secs) for incoming call on Phone2, then answers automatically.",
+            "START_RECORD": "Starts call recording. File saved to path in Value column.",
+            "WAIT":         "Pause Number/Code seconds between steps.",
+            "END_CALL":     "Hangs up the call on Phone1.",
+            "STOP_RECORD":  "Stops recording and pulls audio file to local path in Value column.",
+            "SMS":          "Sends SMS from Phone1 to Number/Code with body in Value.",
+            "CHECK_SMS":    "Queries Phone2 inbox for SMS from Number/Code containing Value text.",
+            "USSD":         "Dials USSD code and captures network response text.",
+        }
 
-        # Freeze header row
+        section_fills_map = {"CALL": row_fill_a, "SMS": row_fill_b, "USSD": row_fill_u}
+
+        data_row = 2
+        for entry in rows:
+            if entry[0] == "SECTION":
+                # Section header spanning all columns
+                label   = entry[1]
+                section = label.split()[0]
+                ws.merge_cells(start_row=data_row, start_column=1,
+                               end_row=data_row, end_column=len(COLUMNS))
+                cell = ws.cell(row=data_row, column=1, value=f"  {label}")
+                cell.font      = section_font
+                cell.fill      = section_fills.get(section, header_fill)
+                cell.alignment = Alignment(vertical="center")
+                ws.row_dimensions[data_row].height = 22
+                data_row += 1
+                continue
+
+            step, action, target, num_code, value, expected, section = entry
+            row_fill = section_fills_map.get(section, row_fill_a)
+            note     = action_notes.get(action, "")
+
+            values = [step, action, target, num_code, value, expected, "", "", note, ""]
+            for col_idx, val in enumerate(values, start=1):
+                cell = ws.cell(row=data_row, column=col_idx, value=val)
+                cell.fill      = row_fill
+                cell.alignment = center if col_idx in (1, 2, 3, 8) else left
+            ws.row_dimensions[data_row].height = 18
+            data_row += 1
+
+        # ── Freeze header, auto-filter ────────────────────────────────
         ws.freeze_panes = "A2"
+        ws.auto_filter.ref = f"A1:{get_column_letter(len(COLUMNS))}1"
 
         wb.save(file_path)
         print(f"Template written to '{file_path}'")
+

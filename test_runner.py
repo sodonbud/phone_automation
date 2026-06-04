@@ -137,6 +137,10 @@ class TestRunner:
         self.total += 1
 
         if not action or action not in SUPPORTED_ACTIONS:
+            # Silently skip blank/section-header rows — don't write to merged cells
+            if not action:
+                self.total -= 1
+                return "SKIP"
             reason = f"Unsupported or missing action '{action}'"
             self.log.warning("Step %s — SKIP: %s", step, reason)
             self.ec.write_result(row_idx, "", "SKIP", reason)
