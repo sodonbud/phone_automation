@@ -67,31 +67,97 @@ def _dump_ui_tree(serial: str) -> ET.Element | None:
         return None
 
 
-def _find_clickable(root: ET.Element, text_keywords: set[str], id_suffixes: set[str]) -> tuple[int, int] | None:
-    """Return (x, y) centre of the first clickable node matching keywords or resource-id suffixes."""
+def _node_center(node: ET.Element) -> tuple[int, int] | None:
+    nums = re.findall(r"\d+", node.get("bounds", ""))
+    if len(nums) == 4:
+        return (int(nums[0]) + int(nums[2])) // 2, (int(nums[1]) + int(nums[3])) // 2
+    return None
+
+
+def _node_matches(
+    node: ET.Element,
+    text_keywords: set[str],
+    id_suffixes: set[str],
+    id_contains: set[str] | None = None,
+) -> bool:
+    text = (node.get("text") or "").lower()
+    desc = (node.get("content-desc") or "").lower()
+    res_id = (node.get("resource-id") or "").lower()
+    if any(kw in text or kw in desc for kw in text_keywords):
+        return True
+    if any(res_id.endswith(s) for s in id_suffixes):
+        return True
+    if id_contains and any(part in res_id for part in id_contains):
+        return True
+    return False
+
+
+def _find_clickable(
+    root: ET.Element,
+    text_keywords: set[str],
+    id_suffixes: set[str],
+    id_contains: set[str] | None = None,
+) -> tuple[int, int] | None:
+    """Return (x, y) centre of the first clickable node matching keywords or resource-id."""
     for node in root.iter("node"):
         if node.get("clickable") != "true":
             continue
-        text = (node.get("text") or "").lower()
-        desc = (node.get("content-desc") or "").lower()
-        res_id = (node.get("resource-id") or "").lower()
-        if text in text_keywords or desc in text_keywords or any(res_id.endswith(s) for s in id_suffixes):
-            nums = re.findall(r"\d+", node.get("bounds", ""))
-            if len(nums) == 4:
-                return (int(nums[0]) + int(nums[2])) // 2, (int(nums[1]) + int(nums[3])) // 2
+        if _node_matches(node, text_keywords, id_suffixes, id_contains):
+            coords = _node_center(node)
+            if coords:
+                return coords
     return None
 
 
 def _find_send_button(serial: str) -> tuple[int, int] | None:
+    """Locate the compose-area Send button, avoiding message-history 'Sent' rows."""
     root = _dump_ui_tree(serial)
     if root is None:
         return None
-    keywords = {"send", "sent", "send sms", "পাঠান", "enviar", "отправить"}
-    id_suffixes = {":send", "/send", "send"}
-    coords = _find_clickable(root, keywords, id_suffixes)
-    if coords:
-        get_logger().debug("Send button found at %s", coords)
-    return coords
+
+    _, h = _get_screen_size(serial)
+    compose_y_min = int(h * 0.70)
+    id_contains = (
+        "send_message_button", "send_button", "send_btn", "btn_send",
+        "compose_send", "send_message", "send_pan",
+    )
+    desc_keywords = (
+        "send message", "send sms", "send mms", "send",
+        "илгээх", "послать", "enviar", "отправить",
+    )
+
+    # Pass 1: known compose send-button resource-ids in the bottom compose bar
+    for node in root.iter("node"):
+        if node.get("clickable") != "true":
+            continue
+        res_id = (node.get("resource-id") or "").lower()
+        if not any(part in res_id for part in id_contains):
+            continue
+        coords = _node_center(node)
+        if coords and coords[1] >= compose_y_min:
+            get_logger().debug("Send button found by resource-id %s at %s", res_id, coords)
+            return coords
+
+    # Pass 2: content-desc/text in bottom compose area (exclude chat history nodes)
+    for node in root.iter("node"):
+        if node.get("clickable") != "true":
+            continue
+        res_id = (node.get("resource-id") or "").lower()
+        if "message_item" in res_id or "message_status" in res_id:
+            continue
+        text = (node.get("text") or "").lower().strip()
+        desc = (node.get("content-desc") or "").lower().strip()
+        label = desc or text
+        if not label:
+            continue
+        if not any(kw == label or label.startswith(kw + " ") for kw in desc_keywords):
+            continue
+        coords = _node_center(node)
+        if coords and coords[1] >= compose_y_min:
+            get_logger().debug("Send button found by label '%s' at %s", label, coords)
+            return coords
+
+    return None
 
 
 def _find_call_button(serial: str) -> tuple[int, int] | None:
@@ -358,6 +424,98 @@ def answer_call(serial: str) -> Result:
     )
 
 
+def _normalise_msisdn(num: str) -> str:
+    return re.sub(r"\D", "", num)[-8:]
+
+
+def _parse_sms_row(line: str) -> tuple[str, str] | None:
+    """Extract (address, body) from a `content query` Row line."""
+    if "address=" not in line:
+        return None
+    addr_match = re.search(r"address=([^,]+)", line)
+    if not addr_match:
+        return None
+    body_match = re.search(
+        r"body=(.+?)(?:,\s*(?:date|type|_id|thread_id|read|status|date_sent|"
+        r"protocol|reply_path_present|subject|service_center|locked|"
+        r"error_code|seen|sub_id|creator|person)=|$)",
+        line,
+    )
+    body = body_match.group(1).strip() if body_match else ""
+    return addr_match.group(1).strip(), body
+
+
+def _numbers_match(addr: str, target: str) -> bool:
+    a = _normalise_msisdn(addr)
+    t = _normalise_msisdn(target)
+    return (
+        a == t
+        or a.endswith(t) or t.endswith(a)
+        or (len(t) >= 6 and a[-6:] == t[-6:])
+    )
+
+
+def _verify_sms_sent_in_ui(serial: str, message: str) -> bool:
+    """OnePlus/Google Messages show the just-sent bubble with '..., Sent' in content-desc."""
+    root = _dump_ui_tree(serial)
+    if root is None:
+        return False
+    needle = message.lower().strip()
+    for node in root.iter("node"):
+        desc = (node.get("content-desc") or "").lower()
+        if "sent" not in desc:
+            continue
+        if not needle or needle in desc:
+            get_logger().debug("SMS send verified in UI: %s", desc[:120])
+            return True
+    return False
+
+
+def _verify_sms_sent(serial: str, number: str, message: str, wait_secs: int = 15) -> Result:
+    """Check sent box / chat UI for a message to *number* with matching body."""
+    log = get_logger()
+    target = _normalise_msisdn(number)
+    needle = message.lower().strip()
+    uris = ["content://sms/sent", "content://sms/outbox"]
+    deadline = time.time() + wait_secs
+
+    while time.time() < deadline:
+        for uri in uris:
+            # Do NOT use --sort on OnePlus/OxygenOS — it breaks `content query`.
+            ok, raw = _run(
+                _serial_args(serial)
+                + ["shell", "content", "query", "--uri", uri,
+                   "--projection", "address:body:date:type"]
+            )
+            if not ok or "Row:" not in raw:
+                log.debug("SMS sent query %s empty/failed: %s", uri, raw[:200])
+                continue
+            best_date = -1
+            best_body = ""
+            for line in raw.splitlines():
+                parsed = _parse_sms_row(line)
+                if not parsed:
+                    continue
+                addr, body = parsed
+                if not _numbers_match(addr, number):
+                    continue
+                date_match = re.search(r"date=(\d+)", line)
+                msg_date = int(date_match.group(1)) if date_match else 0
+                if msg_date >= best_date:
+                    best_date = msg_date
+                    best_body = body
+            if best_body and (not needle or needle in best_body.lower()):
+                log.info("SMS send verified in %s to %s: %s", uri, number, best_body[:80])
+                return True, f"SMS sent and verified | body={best_body[:120]}"
+
+        if _verify_sms_sent_in_ui(serial, message):
+            return True, f"SMS sent and verified in chat UI | body={message[:120]}"
+
+        time.sleep(1.5)
+
+    return False, f"SMS composer action completed but no sent message to {number} found within {wait_secs}s"
+
+
 def send_sms(serial: str, number: str, message: str) -> Result:
     """Open the SMS composer, pre-fill number + body, then tap the Send button.
 
@@ -367,6 +525,8 @@ def send_sms(serial: str, number: str, message: str) -> Result:
     """
     log = get_logger()
     import base64
+
+    wake_and_unlock(serial)
     encoded_number = urllib.parse.quote(number)
     # Encode message to avoid shell interpretation of special words like "from"
     b64_msg = base64.b64encode(message.encode()).decode()
@@ -395,20 +555,31 @@ def send_sms(serial: str, number: str, message: str) -> Result:
     if not launched:
         return False, f"Could not open SMS composer: {last_out}"
 
-    time.sleep(2)
+    time.sleep(2.5)
 
-    coords = _find_send_button(serial)
-    if coords:
-        x, y = coords
-        tap_ok, tap_out = _run(_serial_args(serial) + ["shell", "input", "tap", str(x), str(y)])
-        if tap_ok:
-            log.info("SMS Send button tapped at (%d, %d)", x, y)
-            return True, f"SMS sent | Send tapped at ({x},{y})"
-        return False, f"Tap failed: {tap_out}"
+    sent = False
+    for attempt in range(3):
+        coords = _find_send_button(serial)
+        if coords:
+            x, y = coords
+            tap_ok, tap_out = _run(_serial_args(serial) + ["shell", "input", "tap", str(x), str(y)])
+            if not tap_ok:
+                return False, f"Send button tap failed: {tap_out}"
+            log.info("SMS Send button tapped at (%d, %d) attempt %d", x, y, attempt + 1)
+            sent = True
+            break
+        time.sleep(1)
 
-    log.warning("Send button not found — trying ENTER keyevent fallback")
-    _run(_serial_args(serial) + ["shell", "input", "keyevent", "66"])
-    return True, f"{last_out} | Send button not found; tried ENTER fallback."
+    if not sent:
+        log.warning("Send button not found — trying ENTER keyevent fallback")
+        _run(_serial_args(serial) + ["shell", "input", "keyevent", "66"])
+
+    verified, verify_out = _verify_sms_sent(serial, number, message)
+    if verified:
+        return True, verify_out
+    if sent:
+        return False, f"Send button tapped but verification failed: {verify_out}"
+    return False, f"Send button not found and ENTER fallback did not send: {verify_out}"
 
 
 def check_sms_received(serial: str, from_number: str, expected_text: str = "", timeout: int = 15) -> Result:
