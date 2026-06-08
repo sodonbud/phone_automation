@@ -120,6 +120,8 @@ def _find_send_button(serial: str) -> tuple[int, int] | None:
     id_contains = (
         "send_message_button", "send_button", "send_btn", "btn_send",
         "compose_send", "send_message", "send_pan",
+        ":send", "/send",   # Google Messages: Compose:Draft:Send
+        "draft:send",
     )
     desc_keywords = (
         "send message", "send sms", "send mms", "send",
@@ -583,18 +585,20 @@ def send_sms(serial: str, number: str, message: str) -> Result:
 
 
 def check_sms_received(serial: str, from_number: str, expected_text: str = "", timeout: int = 15) -> Result:
-    """Poll the SMS inbox until a message from *from_number* arrives, up to *timeout* seconds.
+    """Poll the SMS inbox until a *recent* message from *from_number* arrives.
 
-    Strips country-code prefixes when comparing so +97699001122 matches 99001122.
-    Returns (True, message_body) if found, (False, reason) otherwise.
+    Only considers messages received in the last 10 minutes to avoid matching
+    SMS from previous test runs.
     """
     log = get_logger()
 
     def normalise(num: str) -> str:
         return re.sub(r"\D", "", num)[-8:]
 
+    # Only match messages received within the last 10 minutes (in ms epoch)
+    cutoff_ms = int((time.time() - 600) * 1000)
+
     def _query_inbox() -> tuple[bool, str] | None:
-        # Try /inbox first (confirmed working on Pixel 9), fall back to /sms
         raw = ""
         for uri in ["content://sms/inbox", "content://sms"]:
             ok, out = _run(
@@ -618,6 +622,10 @@ def check_sms_received(serial: str, from_number: str, expected_text: str = "", t
             if not addr_match:
                 continue
             addr = normalise(addr_match.group(1))
+            # Skip messages older than 10 minutes
+            date_match = re.search(r"\bdate=(\d+)", line)
+            if date_match and int(date_match.group(1)) < cutoff_ms:
+                continue
             body_match = re.search(
                 r"body=(.+?)(?:,\s*(?:type|date|_id|thread_id|read|status|"
                 r"protocol|reply_path_present|subject|service_center|locked|"
