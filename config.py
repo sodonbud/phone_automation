@@ -5,8 +5,8 @@ DEVICES = {
 
 # SIM MSISDN per device (E.164). Used in Excel Number/Code when calling/SMS between phones.
 PHONE_NUMBERS = {
-    "Phone1": "+97699001111",
-    "Phone2": "+97699002222",
+    "Phone1": "+97694310456",
+    "Phone2": "+97695091051",
 }
 
 EXCEL_PATH = "test_cases.xlsx"
