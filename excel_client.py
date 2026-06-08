@@ -217,7 +217,7 @@ class ExcelClient:
             # ── CALL TEST ──────────────────────────────────────────────
             ("SECTION", "CALL TEST — Phone1 calls Phone2, Phone2 answers, verify via call log"),
             ("1",  "CALL",         "Phone1", "+97699002222", "",               "",               "CALL"),
-            ("2",  "ANSWER_CALL",  "Phone2", "",             "5",              "Call answered",  "CALL"),
+            ("2",  "ANSWER_CALL",  "Phone2", "",             "20",             "Call answered",  "CALL"),
             ("3",  "WAIT",         "Phone1", "10",           "",               "",               "CALL"),
             ("4",  "END_CALL",     "Phone1", "",             "",               "",               "CALL"),
             ("5",  "CHECK_CALL",   "Phone1", "+97699002222", "OUTGOING",       "Call verified",  "CALL"),

@@ -629,13 +629,14 @@ def check_sms_received(serial: str, from_number: str, expected_text: str = "", t
             matched = (addr == target
                        or addr.endswith(target) or target.endswith(addr)
                        or (len(target) >= 6 and addr[-6:] == target[-6:]))
-            if matched:
-                if expected_text and expected_text.lower() not in body.lower():
-                    log.warning("SMS found from %s but body '%s' doesn't contain '%s'",
-                                from_number, body, expected_text)
-                    return False, f"SMS received but content mismatch. Got: {body}"
+            if not matched:
+                continue
+            # Address matches — check body. Keep scanning all rows so an old
+            # OTP/unrelated message doesn't shadow the actual test SMS.
+            if not expected_text or expected_text.lower() in body.lower():
                 log.info("SMS from %s found: %s", from_number, body)
                 return True, body
+            log.debug("Address match but body mismatch (looking for '%s'): %s", expected_text, body[:80])
         return None  # not found yet
 
     log.info("Waiting up to %ds for SMS from %s on %s ...", timeout, from_number, serial)
@@ -750,12 +751,15 @@ def check_call_log(serial: str, number: str, call_type: str = "") -> Result:
     target = normalise(number)
 
     for line in raw.splitlines():
-        if "number=" not in line and "name=" not in line:
+        if "number=" not in line:
             continue
-        num_match = re.search(r"\bnumber=(\S+)", line)
+        num_match = re.search(r"\bnumber=([^,\s]+)", line)
         if not num_match:
             continue
-        num = normalise(num_match.group(1))
+        raw_num = num_match.group(1).strip().rstrip(",")
+        num = normalise(raw_num)
+        if not num:  # skip empty number fields
+            continue
         if not (num == target or num.endswith(target) or target.endswith(num)
                 or (len(target) >= 6 and num[-6:] == target[-6:])):
             continue
@@ -772,7 +776,7 @@ def check_call_log(serial: str, number: str, call_type: str = "") -> Result:
         if duration == 0:
             return False, f"Call to/from {number} found but duration=0 (call may not have connected)"
 
-        msg = f"Call verified | duration={duration}s | type={ctype} | number={num_match.group(1)}"
+        msg = f"Call verified | duration={duration}s | type={ctype} | number={raw_num}"
         log.info(msg)
         return True, msg
 
