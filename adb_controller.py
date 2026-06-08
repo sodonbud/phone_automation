@@ -657,9 +657,9 @@ def check_sms_received(serial: str, from_number: str, expected_text: str = "", t
 def _read_ussd_response(serial: str, wait_secs: int = 15) -> str | None:
     """Poll the UI until a USSD response dialog appears, then return its message text.
 
-    Collects ALL text fragments from matching nodes and joins them so that
-    multi-node responses (e.g. "MSISDN:" in one node and the number in another)
-    are returned as a single string.
+    On Pixel 9 the response is split across multiple nodes (e.g. "MSISDN:" in
+    one node, the number in another). This function collects ALL visible text
+    in the dialog area and joins fragments to form the complete response.
     """
     log = get_logger()
     response_ids = {
@@ -667,9 +667,12 @@ def _read_ussd_response(serial: str, wait_secs: int = 15) -> str | None:
         "com.android.phone:id/message",
         "com.google.android.dialer:id/ussd_response",
     }
-    not_ussd = {"calling", "calling...", "calling…", "connecting",
-                "dialing", "ringing", "on hold", "disconnected",
-                "ussd code running", "ussd code running…", "ussd code running...", ""}
+    not_ussd = {
+        "calling", "calling...", "calling…", "connecting", "dialing",
+        "ringing", "on hold", "disconnected",
+        "ussd code running", "ussd code running…", "ussd code running...",
+        "ok", "cancel", "close", "dismiss", "",
+    }
     deadline = time.time() + wait_secs
     while time.time() < deadline:
         time.sleep(2)
@@ -677,17 +680,39 @@ def _read_ussd_response(serial: str, wait_secs: int = 15) -> str | None:
         if root is None:
             continue
 
-        # ── Pass 1: collect all nodes with known USSD resource-ids ──────
+        # ── Pass 1: collect ALL nodes with known USSD resource-ids ──────
+        # Also include any sibling/child text nodes in the same dialog.
         fragments: list[str] = []
+        dialog_found = False
         for node in root.iter("node"):
             res_id = node.get("resource-id") or ""
             text = (node.get("text") or "").strip()
-            if res_id in response_ids and text:
-                fragments.append(text)
-        if fragments:
-            result = " ".join(fragments)
-            log.info("USSD response (resource-id): %s", result)
-            return result
+            if res_id in response_ids:
+                dialog_found = True
+                if text:
+                    fragments.append(text)
+        if dialog_found:
+            # Also collect any adjacent TextView text in the same dialog package
+            pkg_hint = None
+            for node in root.iter("node"):
+                if (node.get("resource-id") or "") in response_ids:
+                    pkg_hint = node.get("package")
+                    break
+            if pkg_hint:
+                for node in root.iter("node"):
+                    if node.get("package") != pkg_hint:
+                        continue
+                    text = (node.get("text") or "").strip()
+                    res_id = node.get("resource-id") or ""
+                    if (text and text not in fragments
+                            and text.lower() not in not_ussd
+                            and res_id not in response_ids  # already added
+                            and "button" not in (node.get("class") or "").lower()):
+                        fragments.append(text)
+            if fragments:
+                result = " ".join(fragments)
+                log.info("USSD response (resource-id): %s", result)
+                return result
 
         # ── Pass 2: all TextViews in telephony/dialer package ───────────
         fragments = []
