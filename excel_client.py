@@ -173,8 +173,24 @@ class ExcelClient:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def create_template(file_path: str, sheet_name: str = "TestCases") -> None:
-        """Write a ready-to-use test sheet to *file_path*."""
+    def create_template(
+        file_path: str,
+        sheet_name: str = "TestCases",
+        phone_numbers: dict[str, str] | None = None,
+    ) -> None:
+        """Write a ready-to-use test sheet to *file_path*.
+
+        phone_numbers: e.g. {"Phone1": "+97694310546", "Phone2": "+97695091051"}.
+        If None, falls back to config.PHONE_NUMBERS when available.
+        """
+        if phone_numbers is None:
+            try:
+                import config as _cfg
+                phone_numbers = getattr(_cfg, "PHONE_NUMBERS", {})
+            except ImportError:
+                phone_numbers = {}
+        p1 = phone_numbers.get("Phone1", "+97699001111")
+        p2 = phone_numbers.get("Phone2", "+97699002222")
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = sheet_name
@@ -216,20 +232,21 @@ class ExcelClient:
         rows = [
             # ── CALL TEST ──────────────────────────────────────────────
             ("SECTION", "CALL TEST — Phone1 calls Phone2, Phone2 answers, verify via call log"),
-            ("1",  "CALL",         "Phone1", "+97699002222", "",               "",               "CALL"),
-            ("2",  "ANSWER_CALL",  "Phone2", "",             "20",             "Call answered",  "CALL"),
-            ("3",  "WAIT",         "Phone1", "10",           "",               "",               "CALL"),
-            ("4",  "END_CALL",     "Phone1", "",             "",               "",               "CALL"),
-            ("5",  "CHECK_CALL",   "Phone1", "+97699002222", "OUTGOING",       "Call verified",  "CALL"),
-            ("6",  "CHECK_CALL",   "Phone2", "+97699001111", "INCOMING",       "Call verified",  "CALL"),
+            ("1",  "CALL",         "Phone1", p2,  "",               "",               "CALL"),
+            ("2",  "ANSWER_CALL",  "Phone2", "",  "20",             "Call answered",  "CALL"),
+            ("3",  "WAIT",         "Phone1", "10","",               "",               "CALL"),
+            ("4",  "END_CALL",     "Phone1", "",  "",               "",               "CALL"),
+            ("5",  "CHECK_CALL",   "Phone1", p2,  "OUTGOING",       "Call verified",  "CALL"),
+            ("6",  "CHECK_CALL",   "Phone2", p1,  "INCOMING",       "Call verified",  "CALL"),
             # ── SMS TEST ───────────────────────────────────────────────
             ("SECTION", "SMS TEST — Phone1 sends SMS, verify it arrives on Phone2"),
-            ("9",  "SMS",          "Phone1", "+97699002222", "Hello from Phone1",    "",                  "SMS"),
-            ("10", "WAIT",         "Phone1", "5",            "",                     "",                  "SMS"),
-            ("11", "CHECK_SMS",    "Phone2", "+97699001111", "Hello from Phone1",    "Hello from Phone1", "SMS"),
+            ("7",  "SMS",          "Phone1", p2,  "Hello from Phone1",    "",                  "SMS"),
+            ("8",  "WAIT",         "Phone1", "5", "",                     "",                  "SMS"),
+            ("9",  "CHECK_SMS",    "Phone2", p1,  "Hello from Phone1",    "Hello from Phone1", "SMS"),
             # ── USSD TEST ──────────────────────────────────────────────
             ("SECTION", "USSD TEST — Dial USSD on Phone1, capture network response"),
-            ("12", "USSD",         "Phone1", "*100#",        "",                     "",                  "USSD"),
+            ("10", "USSD",         "Phone1", "*100#", "",            "",               "USSD"),
+            ("11", "USSD",         "Phone2", "*100#", "",            "",               "USSD"),
         ]
 
         # ── Notes for each action ─────────────────────────────────────
