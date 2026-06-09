@@ -1066,12 +1066,12 @@ def set_network_type(serial: str, network: str) -> Result:
     # Keywords to match inside the network-mode option dialog (case-insensitive)
     # Ordered from most-specific to least so "5G/LTE/3G/2G" doesn't match "2G"
     OPTION_KEYWORDS: dict[str, list[str]] = {
-        "5G":   ["5g/lte/3g/2g", "nr/lte/3g/2g", "5g/lte", "nr/lte", "5g", "nr"],
-        "4G5G": ["5g/lte/3g/2g", "nr/lte/3g/2g", "5g/lte", "nr/lte"],
-        "4G":   ["lte/3g/2g", "lte/wcdma/gsm", "4g/3g/2g", "lte"],
-        "3G":   ["3g/2g", "3g preferred", "wcdma/gsm", "3g"],
-        "2G":   ["2g only", "gsm only", "2g"],
-        "AUTO": ["auto connect", "auto", "5g/lte/3g/2g", "nr/lte/3g/2g"],
+        "5G":   ["5g (recommended)", "5g/lte/3g/2g", "nr/lte/3g/2g", "5g/lte", "nr/lte", "5g", "nr"],
+        "4G5G": ["5g (recommended)", "5g/lte/3g/2g", "nr/lte/3g/2g", "5g/lte", "nr/lte"],
+        "4G":   ["lte (recommended)", "lte/3g/2g", "lte/wcdma/gsm", "4g/3g/2g", "lte"],
+        "3G":   ["3g/2g", "3g (recommended)", "3g preferred", "wcdma/gsm", "3g"],
+        "2G":   ["2g only", "gsm only", "2g (recommended)", "2g"],
+        "AUTO": ["5g (recommended)", "auto connect", "auto", "5g/lte/3g/2g", "nr/lte/3g/2g"],
     }
 
     key = network.upper().replace(" ", "")
@@ -1081,14 +1081,22 @@ def set_network_type(serial: str, network: str) -> Result:
     keywords = OPTION_KEYWORDS[key]
 
     # ── Step 1: open Mobile Networks settings ────────────────────────
-    _run(_serial_args(serial) + [
-        "shell", "am", "start",
-        "-n", "com.android.settings/.Settings$MobileNetworkActivity"
-    ])
-    time.sleep(2)
+    # Try Samsung intent first, fall back to AOSP/Pixel intent
+    for intent_args in [
+        ["-n", "com.android.settings/.Settings$MobileNetworkActivity"],
+        ["-a", "android.settings.NETWORK_OPERATOR_SETTINGS"],
+    ]:
+        _run(_serial_args(serial) + ["shell", "am", "start"] + intent_args)
+        time.sleep(2)
+        root = _dump_ui_tree(serial)
+        if root is None:
+            continue
+        # Check if the right screen opened (has network mode or preferred network type)
+        all_text = " ".join((n.get("text") or "").lower() for n in root.iter("node"))
+        if "network mode" in all_text or "preferred network type" in all_text:
+            break
 
-    # ── Step 2: find and tap "Network mode" row ───────────────────────
-    root = _dump_ui_tree(serial)
+    # ── Step 2: find and tap "Network mode" / "Preferred network type" row ──
     if root is None:
         return False, "Could not dump UI for Mobile Networks screen"
 
