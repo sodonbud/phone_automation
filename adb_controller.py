@@ -1056,80 +1056,109 @@ def stop_call_recording(serial: str, local_path: str) -> Result:
 
 
 def set_network_type(serial: str, network: str) -> Result:
-    """Switch the preferred network type on *serial*.
+    """Switch the preferred network type by navigating the Mobile Networks settings UI.
 
     network: "2G", "3G", "4G", "5G", "4G5G", or "AUTO"
-
-    Uses preferred_network_mode settings key (works on most devices).
-    Falls back to `cmd phone set-preferred-network-type-for-user` on Pixel/AOSP.
-    Toggles airplane mode briefly to force the modem to reconnect.
+    Works on Samsung (com.samsung.android.app.telephonyui) and Pixel/AOSP.
     """
     log = get_logger()
 
-    # preferred_network_mode values (GSM/WCDMA/LTE/NR bitmask integers)
-    MODE_MAP = {
-        "2G":   1,   # GSM only
-        "3G":   2,   # WCDMA only
-        "4G":   20,  # LTE only
-        "5G":   22,  # NR only
-        "4G5G": 25,  # NR + LTE preferred
-        "AUTO": 33,  # NR/LTE/WCDMA/GSM all
-    }
-    # cmd phone set-preferred-network-type-for-user type values
-    CMD_MAP = {
-        "2G":   "1",   # GSM_ONLY
-        "3G":   "2",   # WCDMA_ONLY
-        "4G":   "11",  # LTE_ONLY
-        "5G":   "20",  # NR_ONLY
-        "4G5G": "26",  # NR_LTE
-        "AUTO": "27",  # NR_LTE_GSM_WCDMA
+    # Keywords to match inside the network-mode option dialog (case-insensitive)
+    # Ordered from most-specific to least so "5G/LTE/3G/2G" doesn't match "2G"
+    OPTION_KEYWORDS: dict[str, list[str]] = {
+        "5G":   ["5g/lte/3g/2g", "nr/lte/3g/2g", "5g/lte", "nr/lte", "5g", "nr"],
+        "4G5G": ["5g/lte/3g/2g", "nr/lte/3g/2g", "5g/lte", "nr/lte"],
+        "4G":   ["lte/3g/2g", "lte/wcdma/gsm", "4g/3g/2g", "lte"],
+        "3G":   ["3g/2g", "3g preferred", "wcdma/gsm", "3g"],
+        "2G":   ["2g only", "gsm only", "2g"],
+        "AUTO": ["auto connect", "auto", "5g/lte/3g/2g", "nr/lte/3g/2g"],
     }
 
     key = network.upper().replace(" ", "")
-    if key not in MODE_MAP:
-        return False, (
-            f"Unknown network type '{network}'. "
-            f"Valid values: {', '.join(MODE_MAP)}"
-        )
+    if key not in OPTION_KEYWORDS:
+        return False, f"Unknown network type '{network}'. Valid: 2G, 3G, 4G, 5G, 4G5G, AUTO"
 
-    mode_val = MODE_MAP[key]
-    success = False
+    keywords = OPTION_KEYWORDS[key]
 
-    # ── Method 1: settings put global preferred_network_mode ─────────
-    # Try both slot keys for dual-SIM devices
-    for setting_key in ("preferred_network_mode", "preferred_network_mode0"):
-        ok, out = _run(_serial_args(serial) + [
-            "shell", "settings", "put", "global", setting_key, str(mode_val)
-        ])
-        if ok:
-            log.info("Network mode set via settings %s=%s on %s", setting_key, mode_val, serial)
-            success = True
+    # ── Step 1: open Mobile Networks settings ────────────────────────
+    _run(_serial_args(serial) + [
+        "shell", "am", "start",
+        "-n", "com.android.settings/.Settings$MobileNetworkActivity"
+    ])
+    time.sleep(2)
+
+    # ── Step 2: find and tap "Network mode" row ───────────────────────
+    root = _dump_ui_tree(serial)
+    if root is None:
+        return False, "Could not dump UI for Mobile Networks screen"
+
+    network_mode_coords = None
+    for node in root.iter("node"):
+        text = (node.get("text") or "").strip()
+        if text.lower() in ("network mode", "preferred network type", "network type"):
+            # Find the parent clickable row
+            nums = re.findall(r"\d+", node.get("bounds", ""))
+            if len(nums) == 4:
+                network_mode_coords = (
+                    (int(nums[0]) + int(nums[2])) // 2,
+                    (int(nums[1]) + int(nums[3])) // 2,
+                )
             break
 
-    # ── Method 2: cmd phone (Pixel/AOSP Android 12+) ─────────────────
-    cmd_val = CMD_MAP[key]
-    ok2, out2 = _run(_serial_args(serial) + [
-        "shell", "cmd", "phone", "set-preferred-network-type-for-user", "0", cmd_val
-    ])
-    if ok2:
-        log.info("Network mode set via cmd phone type=%s on %s", cmd_val, serial)
-        success = True
+    if not network_mode_coords:
+        # Fallback: find any clickable row whose text/summary contains "network mode"
+        for node in root.iter("node"):
+            if node.get("clickable") != "true":
+                continue
+            subtexts = " ".join((n.get("text") or "") for n in node.iter("node")).lower()
+            if "network mode" in subtexts or "preferred network" in subtexts:
+                nums = re.findall(r"\d+", node.get("bounds", ""))
+                if len(nums) == 4:
+                    network_mode_coords = (
+                        (int(nums[0]) + int(nums[2])) // 2,
+                        (int(nums[1]) + int(nums[3])) // 2,
+                    )
+                break
 
-    if not success:
-        return False, f"Failed to set network type to {network}"
+    if not network_mode_coords:
+        return False, "Could not find 'Network mode' row in settings UI"
 
-    # ── Toggle airplane mode to force modem reconnect ─────────────────
-    for val in ("1", "0"):
-        _run(_serial_args(serial) + ["shell", "settings", "put", "global", "airplane_mode_on", val])
-        _run(_serial_args(serial) + [
-            "shell", "am", "broadcast",
-            "-a", "android.intent.action.AIRPLANE_MODE",
-            "--ez", "state", "true" if val == "1" else "false"
-        ])
-        time.sleep(2 if val == "1" else 3)
+    x, y = network_mode_coords
+    _run(_serial_args(serial) + ["shell", "input", "tap", str(x), str(y)])
+    log.info("Tapped 'Network mode' at (%d, %d)", x, y)
+    time.sleep(1.5)
 
-    log.info("Network type changed to %s on %s", network, serial)
-    return True, f"Network type set to {network}"
+    # ── Step 3: find and tap the target option ────────────────────────
+    root2 = _dump_ui_tree(serial)
+    if root2 is None:
+        return False, "Could not dump UI for network mode dialog"
+
+    for kw in keywords:
+        for node in root2.iter("node"):
+            text = (node.get("text") or "").strip().lower()
+            if kw in text:
+                nums = re.findall(r"\d+", node.get("bounds", ""))
+                if len(nums) == 4:
+                    ox = (int(nums[0]) + int(nums[2])) // 2
+                    oy = (int(nums[1]) + int(nums[3])) // 2
+                    _run(_serial_args(serial) + ["shell", "input", "tap", str(ox), str(oy)])
+                    log.info("Selected network option '%s' at (%d, %d)", text, ox, oy)
+                    time.sleep(1)
+                    # Press back to close settings
+                    _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_BACK"])
+                    return True, f"Network type set to {network} (option: '{text}')"
+
+    # Log all available options to help debug
+    available = [
+        (n.get("text") or "").strip()
+        for n in root2.iter("node")
+        if (n.get("text") or "").strip() and len((n.get("text") or "").strip()) > 1
+    ]
+    _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_BACK"])
+    return False, (
+        f"Option for '{network}' not found in dialog. "
+        f"Available texts: {available[:15]}"
+    )
 
 
 def set_config(serial: str, namespace: str, key: str, value: str) -> Result:
