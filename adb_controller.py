@@ -1055,6 +1055,83 @@ def stop_call_recording(serial: str, local_path: str) -> Result:
     return False, f"Pull failed: {out}"
 
 
+def set_network_type(serial: str, network: str) -> Result:
+    """Switch the preferred network type on *serial*.
+
+    network: "2G", "3G", "4G", "5G", "4G5G", or "AUTO"
+
+    Uses preferred_network_mode settings key (works on most devices).
+    Falls back to `cmd phone set-preferred-network-type-for-user` on Pixel/AOSP.
+    Toggles airplane mode briefly to force the modem to reconnect.
+    """
+    log = get_logger()
+
+    # preferred_network_mode values (GSM/WCDMA/LTE/NR bitmask integers)
+    MODE_MAP = {
+        "2G":   1,   # GSM only
+        "3G":   2,   # WCDMA only
+        "4G":   20,  # LTE only
+        "5G":   22,  # NR only
+        "4G5G": 25,  # NR + LTE preferred
+        "AUTO": 33,  # NR/LTE/WCDMA/GSM all
+    }
+    # cmd phone set-preferred-network-type-for-user type values
+    CMD_MAP = {
+        "2G":   "1",   # GSM_ONLY
+        "3G":   "2",   # WCDMA_ONLY
+        "4G":   "11",  # LTE_ONLY
+        "5G":   "20",  # NR_ONLY
+        "4G5G": "26",  # NR_LTE
+        "AUTO": "27",  # NR_LTE_GSM_WCDMA
+    }
+
+    key = network.upper().replace(" ", "")
+    if key not in MODE_MAP:
+        return False, (
+            f"Unknown network type '{network}'. "
+            f"Valid values: {', '.join(MODE_MAP)}"
+        )
+
+    mode_val = MODE_MAP[key]
+    success = False
+
+    # ── Method 1: settings put global preferred_network_mode ─────────
+    # Try both slot keys for dual-SIM devices
+    for setting_key in ("preferred_network_mode", "preferred_network_mode0"):
+        ok, out = _run(_serial_args(serial) + [
+            "shell", "settings", "put", "global", setting_key, str(mode_val)
+        ])
+        if ok:
+            log.info("Network mode set via settings %s=%s on %s", setting_key, mode_val, serial)
+            success = True
+            break
+
+    # ── Method 2: cmd phone (Pixel/AOSP Android 12+) ─────────────────
+    cmd_val = CMD_MAP[key]
+    ok2, out2 = _run(_serial_args(serial) + [
+        "shell", "cmd", "phone", "set-preferred-network-type-for-user", "0", cmd_val
+    ])
+    if ok2:
+        log.info("Network mode set via cmd phone type=%s on %s", cmd_val, serial)
+        success = True
+
+    if not success:
+        return False, f"Failed to set network type to {network}"
+
+    # ── Toggle airplane mode to force modem reconnect ─────────────────
+    for val in ("1", "0"):
+        _run(_serial_args(serial) + ["shell", "settings", "put", "global", "airplane_mode_on", val])
+        _run(_serial_args(serial) + [
+            "shell", "am", "broadcast",
+            "-a", "android.intent.action.AIRPLANE_MODE",
+            "--ez", "state", "true" if val == "1" else "false"
+        ])
+        time.sleep(2 if val == "1" else 3)
+
+    log.info("Network type changed to %s on %s", network, serial)
+    return True, f"Network type set to {network}"
+
+
 def set_config(serial: str, namespace: str, key: str, value: str) -> Result:
     """Set a device setting via `adb shell settings put`."""
     return _run(_serial_args(serial) + ["shell", "settings", "put", namespace, key, value])

@@ -17,6 +17,7 @@ SUPPORTED_ACTIONS = {
     "SMS", "CHECK_SMS",
     "CHECK_CALL",
     "USSD",
+    "SET_NETWORK",
     "SET_CONFIG", "GET_CONFIG",
     "START_RECORD", "STOP_RECORD",
     "WAIT", "WAKE",
@@ -84,6 +85,10 @@ class TestRunner:
         if action == "CHECK_CALL":
             # Number/Code = other party's number, Value = INCOMING/OUTGOING (optional)
             return adb.check_call_log(serial, number_code, call_type=value)
+
+        if action == "SET_NETWORK":
+            # Number/Code = network type: 2G / 3G / 4G / 5G / 4G5G / AUTO
+            return adb.set_network_type(serial, number_code)
 
         # ── USSD ─────────────────────────────────────────────────────
         if action == "USSD":

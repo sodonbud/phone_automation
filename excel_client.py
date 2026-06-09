@@ -256,6 +256,7 @@ class ExcelClient:
             "WAIT":         "Pause Number/Code seconds between steps.",
             "END_CALL":     "Hangs up the call on Phone1.",
             "CHECK_CALL":   "Verify call in log: Number/Code=other party, Value=INCOMING or OUTGOING.",
+            "SET_NETWORK":  "Change network type: Number/Code = 2G / 3G / 4G / 5G / 4G5G / AUTO.",
             "SMS":          "Sends SMS from Phone1 to Number/Code with body in Value.",
             "CHECK_SMS":    "Queries Phone2 inbox for SMS from Number/Code containing Value text.",
             "USSD":         "Dials USSD code and captures network response text.",
