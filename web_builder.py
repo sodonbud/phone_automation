@@ -257,11 +257,15 @@ HTML = r"""<!DOCTYPE html>
   .action-card .info { flex: 1; }
   .action-card .desc { font-size: .67rem; font-weight: 400; opacity: .75; margin-top: 2px; }
 
-  /* ── Canvas ── */
+  /* ── Canvas split ── */
   .canvas-wrap { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
   .canvas-toolbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 8px 16px; display: flex; gap: 8px; align-items: center; }
-  .canvas-toolbar span { color: var(--muted); font-size: .78rem; flex: 1; }
-  .canvas { flex: 1; overflow-y: auto; padding: 20px 24px; position: relative; }
+  .canvas-toolbar span { color: var(--muted); font-size: .78rem; }
+  .canvas-toolbar .spacer { flex: 1; }
+  .pane-label { font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); padding: 6px 16px 0; }
+  .canvas-body { flex: 1; display: flex; overflow: hidden; }
+  .editor-pane { flex: 1; overflow-y: auto; padding: 16px 20px; border-right: 1px solid var(--border); min-width: 0; }
+  .preview-pane { width: 44%; min-width: 320px; overflow-y: auto; padding: 16px 16px; background: var(--bg); }
   .drop-hint {
     border: 2px dashed var(--border); border-radius: 12px;
     padding: 60px 20px; text-align: center; color: var(--muted);
@@ -269,6 +273,16 @@ HTML = r"""<!DOCTYPE html>
     transition: border-color .2s, background .2s;
   }
   .drop-hint.over { border-color: var(--accent); background: rgba(92,110,248,.06); }
+
+  /* ── Preview table ── */
+  .preview-table { width: 100%; border-collapse: collapse; font-size: .72rem; }
+  .preview-table th { background: var(--surface); color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .5px; padding: 6px 8px; border-bottom: 2px solid var(--border); text-align: left; white-space: nowrap; }
+  .preview-table td { padding: 5px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; color: var(--text); word-break: break-word; }
+  .preview-table tr:hover td { background: var(--surface2); }
+  .preview-table .section-hdr td { background: var(--surface2); color: var(--accent); font-weight: 700; font-size: .7rem; padding: 6px 8px; }
+  .preview-table .step-num-cell { color: var(--muted); font-weight: 700; min-width: 28px; }
+  .action-pill { display: inline-block; padding: 2px 7px; border-radius: 99px; font-size: .65rem; font-weight: 700; color: #fff; white-space: nowrap; }
+  .preview-empty { text-align: center; color: var(--muted); padding: 60px 20px; font-size: .85rem; }
 
   .step-list { display: flex; flex-direction: column; gap: 8px; }
   .step {
@@ -367,15 +381,22 @@ HTML = r"""<!DOCTYPE html>
   <div class="canvas-wrap">
     <div class="canvas-toolbar">
       <span id="step-count">0 steps</span>
+      <span class="spacer"></span>
       <button class="btn btn-ghost" onclick="moveSelected('up')">▲ Up</button>
       <button class="btn btn-ghost" onclick="moveSelected('down')">▼ Down</button>
       <button class="btn btn-danger" onclick="deleteSelected()">✕ Delete</button>
     </div>
-    <div class="canvas" id="canvas" ondragover="onCanvasDragOver(event)" ondrop="onCanvasDrop(event)">
-      <div class="drop-hint" id="drop-hint">
-        Drag actions here to build your test workflow
+    <div class="canvas-body">
+      <!-- Editor pane -->
+      <div class="editor-pane" id="canvas" ondragover="onCanvasDragOver(event)" ondrop="onCanvasDrop(event)">
+        <div class="drop-hint" id="drop-hint">Drag actions here to build your test workflow</div>
+        <div class="step-list" id="step-list"></div>
       </div>
-      <div class="step-list" id="step-list"></div>
+      <!-- Preview pane -->
+      <div class="preview-pane">
+        <div class="pane-label" style="padding:0 0 8px 0">Preview</div>
+        <div id="preview-body"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -562,6 +583,47 @@ function render() {
 
   const n = steps.filter(s => !s._isSection).length;
   document.getElementById('step-count').textContent = `${n} step${n !== 1 ? 's' : ''}`;
+  renderPreview();
+}
+
+// ── Preview ───────────────────────────────────────────────────────────────────
+function renderPreview() {
+  const el = document.getElementById('preview-body');
+  if (!el) return;
+  const dataSteps = steps.filter(s => !s._isSection);
+  if (steps.length === 0) {
+    el.innerHTML = '<div class="preview-empty">No steps yet — add actions to see preview</div>';
+    return;
+  }
+
+  let html = '<table class="preview-table"><thead><tr>'
+    + '<th>#</th><th>Action</th><th>Target</th><th>Number/Code</th><th>Value</th><th>Expected</th>'
+    + '</tr></thead><tbody>';
+
+  let stepNum = 0;
+  steps.forEach(s => {
+    if (s._isSection) {
+      html += `<tr class="section-hdr"><td colspan="6">▸ ${esc(s.label || 'Section')}</td></tr>`;
+      return;
+    }
+    stepNum++;
+    const a = ACTIONS.find(x => x.id === s.action) || { color: '#555' };
+    const pill = `<span class="action-pill" style="background:${a.color}">${esc(s.action)}</span>`;
+    const num  = s.number  ? `<code style="font-size:.7rem;opacity:.9">${esc(s.number)}</code>`  : '<span style="color:var(--muted)">—</span>';
+    const val  = s.value   ? esc(s.value)   : '<span style="color:var(--muted)">—</span>';
+    const exp  = s.expected ? esc(s.expected) : '<span style="color:var(--muted)">—</span>';
+    html += `<tr>
+      <td class="step-num-cell">${stepNum}</td>
+      <td>${pill}</td>
+      <td>${esc(s.target || '')}</td>
+      <td>${num}</td>
+      <td>${val}</td>
+      <td>${exp}</td>
+    </tr>`;
+  });
+
+  html += '</tbody></table>';
+  el.innerHTML = html;
 }
 
 function makeSelect(idx, field, label, options) {
