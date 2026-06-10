@@ -5,11 +5,14 @@ from __future__ import annotations
 
 import importlib
 import io
+import json
 import os
 import re
 import sys
+import time
+import threading
 
-from flask import Flask, jsonify, render_template_string, request, send_file
+from flask import Flask, Response, jsonify, render_template_string, request, send_file, stream_with_context
 
 CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.py")
 
@@ -285,6 +288,40 @@ HTML = r"""<!DOCTYPE html>
   .preview-empty { text-align: center; color: var(--muted); padding: 60px 20px; font-size: .85rem; }
 
   .step-list { display: flex; flex-direction: column; gap: 8px; }
+
+  /* ── Run button ── */
+  .btn-run { background: linear-gradient(135deg,#5c6ef8,#7c3aed); color: #fff; }
+  .btn-run:hover { opacity: .88; }
+  .btn-run.running { background: var(--danger); animation: pulse 1.2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.7} }
+
+  /* ── Run panel ── */
+  .run-panel {
+    background: #0a0c14; border-top: 2px solid var(--border);
+    display: flex; flex-direction: column;
+    height: 0; overflow: hidden;
+    transition: height .3s ease;
+  }
+  .run-panel.open { height: 260px; }
+  .run-panel-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 16px; background: var(--surface);
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .run-title { font-size: .8rem; font-weight: 700; color: var(--text); }
+  .run-summary { font-size: .75rem; color: var(--muted); }
+  .run-log { flex: 1; overflow-y: auto; padding: 8px 16px; font-family: 'Cascadia Code','Consolas',monospace; font-size: .75rem; }
+  .log-row { display: flex; align-items: flex-start; gap: 10px; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,.04); }
+  .log-step { color: var(--muted); min-width: 22px; flex-shrink: 0; }
+  .log-action { min-width: 110px; flex-shrink: 0; }
+  .log-target { color: var(--muted); min-width: 70px; flex-shrink: 0; }
+  .log-output { color: #a0aec0; flex: 1; word-break: break-word; }
+  .log-badge { display: inline-block; padding: 1px 8px; border-radius: 99px; font-size: .65rem; font-weight: 800; letter-spacing: .5px; min-width: 42px; text-align: center; }
+  .badge-pass { background: #1a4731; color: #48bb78; border: 1px solid #276749; }
+  .badge-fail { background: #4a1515; color: #fc8181; border: 1px solid #742a2a; }
+  .badge-skip { background: #3d3200; color: #f6e05e; border: 1px solid #744210; }
+  .badge-run  { background: #1a1f3c; color: #90cdf4; border: 1px solid #2c5282; }
+  .log-section { color: var(--accent); font-weight: 700; padding: 6px 0 2px; font-size: .72rem; }
   .step {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 10px; padding: 0;
@@ -361,6 +398,7 @@ HTML = r"""<!DOCTYPE html>
     <button class="btn btn-ghost" onclick="clearAll()">Clear</button>
     <button class="btn btn-ghost" onclick="loadTemplate()">Load Template</button>
     <button class="btn btn-success" onclick="exportExcel()">⬇ Export Excel</button>
+    <button class="btn btn-run" id="run-btn" onclick="toggleRun()">▶ Run Test</button>
   </div>
 </header>
 
@@ -398,6 +436,17 @@ HTML = r"""<!DOCTYPE html>
         <div id="preview-body"></div>
       </div>
     </div>
+  </div>
+  <!-- Run panel (collapsible, slides up) -->
+  <div class="run-panel" id="run-panel">
+    <div class="run-panel-header">
+      <span class="run-title" id="run-title">Test Results</span>
+      <span class="run-summary" id="run-summary"></span>
+      <div style="flex:1"></div>
+      <button class="btn btn-ghost" style="font-size:.75rem;padding:4px 10px" onclick="clearRun()">Clear</button>
+      <button class="btn btn-ghost" style="font-size:.75rem;padding:4px 10px" onclick="closeRun()">✕</button>
+    </div>
+    <div class="run-log" id="run-log"></div>
   </div>
 </div>
 
@@ -717,6 +766,113 @@ async function loadTemplate() {
   toast('Template loaded.', 'success');
 }
 
+// ── Run Test ──────────────────────────────────────────────────────────────────
+let _runActive = false;
+let _runAbort = null;
+let _pass = 0, _fail = 0, _skip = 0;
+
+function toggleRun() {
+  if (_runActive) { stopRun(); } else { startRun(); }
+}
+
+function openRunPanel() {
+  document.getElementById('run-panel').classList.add('open');
+}
+function closeRun() {
+  stopRun();
+  document.getElementById('run-panel').classList.remove('open');
+}
+function clearRun() {
+  document.getElementById('run-log').innerHTML = '';
+  document.getElementById('run-summary').textContent = '';
+  _pass = 0; _fail = 0; _skip = 0;
+}
+
+function stopRun() {
+  if (_runAbort) { _runAbort.abort(); _runAbort = null; }
+  _runActive = false;
+  const btn = document.getElementById('run-btn');
+  btn.textContent = '▶ Run Test'; btn.classList.remove('running');
+}
+
+async function startRun() {
+  if (steps.length === 0) { toast('No steps to run.', 'error'); return; }
+  clearRun(); openRunPanel();
+  _runActive = true; _pass = 0; _fail = 0; _skip = 0;
+  const btn = document.getElementById('run-btn');
+  btn.textContent = '■ Stop'; btn.classList.add('running');
+
+  _runAbort = new AbortController();
+  const log = document.getElementById('run-log');
+
+  try {
+    const res = await fetch('/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ steps }),
+      signal: _runAbort.signal,
+    });
+    if (!res.ok) { toast('Run failed: ' + await res.text(), 'error'); stopRun(); return; }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const parts = buf.split('\n\n');
+      buf = parts.pop();
+      for (const part of parts) {
+        const line = part.replace(/^data: /, '').trim();
+        if (!line) continue;
+        const ev = JSON.parse(line);
+        appendLogRow(ev, log);
+      }
+    }
+  } catch (e) {
+    if (e.name !== 'AbortError') toast('Connection error: ' + e.message, 'error');
+  }
+  stopRun();
+}
+
+function appendLogRow(ev, log) {
+  const row = document.createElement('div');
+
+  if (ev.type === 'section') {
+    row.className = 'log-section';
+    row.textContent = '▸ ' + ev.label;
+    log.appendChild(row); log.scrollTop = log.scrollHeight; return;
+  }
+
+  if (ev.type === 'done') {
+    const s = document.getElementById('run-summary');
+    s.innerHTML = `<span style="color:#48bb78">✓${ev.passed}</span>  <span style="color:#fc8181">✗${ev.failed}</span>  <span style="color:#f6e05e">—${ev.skipped}</span>  <span style="color:var(--muted)">/${ev.total}</span>`;
+    row.style.cssText = 'padding:8px 0;color:var(--muted);font-size:.72rem;border-top:1px solid var(--border);margin-top:4px';
+    row.textContent = `Finished — ${ev.passed} passed, ${ev.failed} failed, ${ev.skipped} skipped`;
+    log.appendChild(row); log.scrollTop = log.scrollHeight; return;
+  }
+
+  const result = (ev.result || 'RUN').toUpperCase();
+  if (result === 'PASS') _pass++; else if (result === 'FAIL') _fail++; else if (result === 'SKIP') _skip++;
+  const badge = { PASS: 'badge-pass', FAIL: 'badge-fail', SKIP: 'badge-skip', RUN: 'badge-run' }[result] || 'badge-run';
+  const a = ACTIONS.find(x => x.id === ev.action) || { color: '#555', icon: '' };
+  row.className = 'log-row';
+  row.innerHTML = `
+    <span class="log-step">${ev.step ?? ''}</span>
+    <span class="log-action"><span class="action-pill" style="background:${a.color}">${a.icon} ${ev.action}</span></span>
+    <span class="log-target">${esc(ev.target || '')}</span>
+    <span class="log-badge ${badge}">${result}</span>
+    <span class="log-output">${esc((ev.output || '').slice(0, 300))}</span>`;
+  log.appendChild(row);
+  log.scrollTop = log.scrollHeight;
+
+  // update live summary in header
+  document.getElementById('run-summary').innerHTML =
+    `<span style="color:#48bb78">✓${_pass}</span>  <span style="color:#fc8181">✗${_fail}</span>  <span style="color:#f6e05e">—${_skip}</span>`;
+}
+
 // ── Toast ─────────────────────────────────────────────────────────────────────
 function toast(msg, type = '') {
   const t = document.getElementById('toast');
@@ -897,6 +1053,117 @@ def export_excel():
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         as_attachment=True,
         download_name="test_cases.xlsx",
+    )
+
+
+@app.route("/run", methods=["POST"])
+def run_test():
+    """Execute test steps and stream results as SSE."""
+    import adb_controller as adb
+    import config as cfg
+    importlib.reload(cfg)
+
+    data  = request.get_json(force=True)
+    steps = data.get("steps", [])
+
+    SUPPORTED = {
+        "CALL", "END_CALL", "ANSWER_CALL",
+        "SMS", "CHECK_SMS", "CHECK_CALL", "CHECK_VOLTE",
+        "USSD", "SET_NETWORK", "SET_CONFIG", "GET_CONFIG",
+        "WAKE", "WAIT",
+    }
+
+    def _resolve(target):
+        return cfg.DEVICES.get(target)
+
+    def _run_step(s, step_num):
+        action     = s.get("action", "").upper()
+        target     = s.get("target", "")
+        number     = s.get("number", "")
+        value      = s.get("value", "")
+        expected   = s.get("expected", "")
+        serial     = _resolve(target)
+
+        base = {"type": "step", "step": step_num, "action": action, "target": target}
+
+        if action not in SUPPORTED:
+            return {**base, "result": "skip", "output": f"Unsupported action '{action}'"}
+
+        if action == "WAIT":
+            secs = float(number) if number else 3.0
+            time.sleep(secs)
+            return {**base, "result": "pass", "output": f"Waited {secs}s"}
+
+        if not serial:
+            return {**base, "result": "fail", "output": f"No serial for '{target}'"}
+
+        try:
+            if action == "CALL":
+                ok, out = adb.make_call(serial, number)
+            elif action == "END_CALL":
+                ok, out = adb.end_call(serial)
+            elif action == "ANSWER_CALL":
+                timeout = int(value) if str(value).isdigit() else 30
+                ok, out = adb.wait_for_incoming_call(serial, timeout=timeout)
+                if ok:
+                    ok, out = adb.answer_call(serial)
+            elif action == "SMS":
+                ok, out = adb.send_sms(serial, number, value)
+            elif action == "CHECK_SMS":
+                ok, out = adb.check_sms_received(serial, number, expected_text=value)
+            elif action == "CHECK_CALL":
+                ok, out = adb.check_call_log(serial, number, call_type=value)
+            elif action == "CHECK_VOLTE":
+                ok, out = adb.check_volte(serial)
+            elif action == "USSD":
+                ok, out = adb.dial_ussd(serial, number)
+            elif action == "SET_NETWORK":
+                ok, out = adb.set_network_type(serial, number)
+            elif action == "SET_CONFIG":
+                ns, _, key = number.partition("/")
+                ok, out = adb.set_config(serial, ns, key, value) if key else (False, "Bad namespace/key")
+            elif action == "GET_CONFIG":
+                ns, _, key = number.partition("/")
+                ok, out = adb.get_config(serial, ns, key) if key else (False, "Bad namespace/key")
+            elif action == "WAKE":
+                ok, out = adb.wake_and_unlock(serial)
+            else:
+                ok, out = False, "Unhandled"
+        except Exception as exc:
+            ok, out = False, str(exc)
+
+        # evaluate
+        if ok and expected and expected.lower() not in out.lower():
+            result = "fail"
+        else:
+            result = "pass" if ok else "fail"
+
+        return {**base, "result": result, "output": out[:400]}
+
+    def generate():
+        total = passed = failed = skipped = 0
+        step_num = 0
+        for s in steps:
+            if s.get("_isSection"):
+                yield f"data: {json.dumps({'type':'section','label':s.get('label','')})}\n\n"
+                continue
+            step_num += 1
+            total += 1
+            # emit "running" indicator first
+            yield f"data: {json.dumps({'type':'step','step':step_num,'action':s.get('action',''),'target':s.get('target',''),'result':'run','output':'running…'})}\n\n"
+            ev = _run_step(s, step_num)
+            r = ev.get("result", "skip")
+            if r == "pass":   passed  += 1
+            elif r == "fail": failed  += 1
+            else:             skipped += 1
+            yield f"data: {json.dumps(ev)}\n\n"
+
+        yield f"data: {json.dumps({'type':'done','total':total,'passed':passed,'failed':failed,'skipped':skipped})}\n\n"
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
 
