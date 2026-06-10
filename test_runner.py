@@ -203,6 +203,15 @@ class TestRunner:
                 continue
             self.run_step(row)
 
+        # Return all devices to home screen after run completes
+        if step_filter is None:
+            for name, serial in config.DEVICES.items():
+                try:
+                    adb.go_home(serial)
+                    self.log.info("Sent %s (%s) to home screen", name, serial)
+                except Exception as exc:
+                    self.log.warning("go_home failed for %s: %s", name, exc)
+
     # ------------------------------------------------------------------
     # Summary
     # ------------------------------------------------------------------

@@ -1288,6 +1288,13 @@ def run_test():
             else:             skipped += 1
             yield f"data: {json.dumps(ev)}\n\n"
 
+        # Send all devices back to home screen
+        for name, serial in cfg.DEVICES.items():
+            try:
+                adb.go_home(serial)
+            except Exception:
+                pass
+
         yield f"data: {json.dumps({'type':'done','total':total,'passed':passed,'failed':failed,'skipped':skipped})}\n\n"
 
     return Response(

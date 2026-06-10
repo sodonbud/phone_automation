@@ -319,6 +319,12 @@ def wake_and_unlock(serial: str) -> Result:
     return True, "Screen ready"
 
 
+def go_home(serial: str) -> Result:
+    """Send device to home screen."""
+    _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_HOME"])
+    return True, "Home screen"
+
+
 def make_call(serial: str, number: str) -> Result:
     """Trigger an outgoing call via the Android dialer."""
     uri = f"tel:{urllib.parse.quote(number)}"
