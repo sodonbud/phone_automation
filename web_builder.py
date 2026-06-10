@@ -391,7 +391,13 @@ function render() {
     div.className = 'step' + (selectedIdx === idx ? ' drag-over' : '');
     div.dataset.idx = idx;
     div.draggable = true;
-    div.addEventListener('click', () => { selectedIdx = idx; render(); });
+    div.addEventListener('click', e => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+      if (selectedIdx === idx) return;
+      selectedIdx = idx;
+      document.querySelectorAll('.step').forEach(el => el.classList.remove('drag-over'));
+      div.classList.add('drag-over');
+    });
     div.addEventListener('dragstart', e => { dragStepIdx = idx; dragSrc = null; e.dataTransfer.effectAllowed = 'move'; div.classList.add('dragging'); });
     div.addEventListener('dragend', () => div.classList.remove('dragging'));
     div.addEventListener('dragover', e => { e.preventDefault(); div.classList.add('drag-over'); });
