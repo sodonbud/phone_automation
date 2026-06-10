@@ -142,6 +142,17 @@ ACTIONS = [
         "desc": "Verify a call entry exists in the call log.",
     },
     {
+        "id": "CHECK_VOLTE",
+        "label": "Check VoLTE",
+        "color": "#0891b2",
+        "icon": "📶",
+        "fields": ["target", "expected"],
+        "hints": {
+            "expected": "e.g. VoLTE ACTIVE (leave blank to just capture result)",
+        },
+        "desc": "Verify VoLTE is active via IMS registration and network type.",
+    },
+    {
         "id": "USSD",
         "label": "Dial USSD",
         "color": "#8e44ad",

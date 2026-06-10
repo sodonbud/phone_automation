@@ -260,6 +260,7 @@ class ExcelClient:
             "SMS":          "Sends SMS from Phone1 to Number/Code with body in Value.",
             "CHECK_SMS":    "Queries Phone2 inbox for SMS from Number/Code containing Value text.",
             "USSD":         "Dials USSD code and captures network response text.",
+            "CHECK_VOLTE":  "Checks IMS registration and network type to confirm VoLTE is active.",
         }
 
         section_fills_map = {"CALL": row_fill_a, "SMS": row_fill_b, "USSD": row_fill_u}

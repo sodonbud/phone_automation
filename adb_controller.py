@@ -816,7 +816,79 @@ def check_call_log(serial: str, number: str, call_type: str = "") -> Result:
     return False, f"No call log entry found for {number}"
 
 
-def dial_ussd(serial: str, code: str) -> Result:
+def check_volte(serial: str) -> Result:
+    """Check whether VoLTE is active on the device.
+
+    Strategy (tried in order):
+    1. dumpsys ims  — IMS registered + VoLTE capability bit
+    2. dumpsys telephony.registry — network type LTE/NR during an active call
+    3. getprop persist.radio.volte / ro.config.ims_package fallback
+    """
+    log = get_logger()
+
+    # ── 1. IMS registration ──────────────────────────────────────────
+    ok, ims = _run(_serial_args(serial) + ["shell", "dumpsys", "ims"])
+    if ok and ims:
+        ims_l = ims.lower()
+        registered = (
+            "isregistered=true" in ims_l
+            or "misismsregistered=true" in ims_l
+            or "ims_registered" in ims_l
+            or "registered=true" in ims_l
+        )
+        # VoLTE capability: CAPABILITY_TYPE_VOICE = 1 or feature tag "m.mms"
+        volte_cap = (
+            "voice" in ims_l
+            and ("capable=true" in ims_l or "isvolteenabled=true" in ims_l
+                 or "feature_tag" in ims_l or "mmtel" in ims_l)
+        )
+
+        if registered:
+            cap_str = "VoLTE capable" if volte_cap else "IMS registered (VoLTE capability not confirmed)"
+            log.info("IMS: registered=%s volte_cap=%s", registered, volte_cap)
+            return True, f"VoLTE ACTIVE — {cap_str}"
+
+        # registered=false explicitly
+        if "isregistered=false" in ims_l or "registered=false" in ims_l:
+            log.info("IMS: explicitly not registered")
+            return False, "VoLTE INACTIVE — IMS not registered"
+
+    # ── 2. Network type during active call ───────────────────────────
+    # LTE=13, NR=20, NR_NSA=19  →  data stays on LTE/NR = VoLTE
+    ok2, reg = _run(_serial_args(serial) + ["shell", "dumpsys", "telephony.registry"])
+    if ok2 and reg:
+        call_state_vals = [int(m) for m in re.findall(r"mCallState=(\d+)", reg)]
+        net_type_vals   = [int(m) for m in re.findall(r"mDataNetworkType=(\d+)", reg)]
+        _VOLTE_NET = {13, 19, 20}   # LTE, NR_NSA, NR
+        in_call = any(s in (1, 2) for s in call_state_vals)
+        on_lte  = bool(set(net_type_vals) & _VOLTE_NET)
+        log.info(
+            "telephony.registry: call_states=%s net_types=%s", call_state_vals, net_type_vals
+        )
+        if in_call and on_lte:
+            nt = net_type_vals[0] if net_type_vals else "?"
+            labels = {13: "LTE", 19: "NR_NSA", 20: "NR"}
+            return True, f"VoLTE ACTIVE — in-call on {labels.get(nt, 'LTE/NR')} (network type {nt})"
+        if in_call and not on_lte:
+            return False, f"VoLTE INACTIVE — in-call but network type is {net_type_vals} (not LTE/NR)"
+        if not in_call:
+            # No active call — just report IMS status
+            if on_lte:
+                return True, f"VoLTE supported — network is LTE/NR (type {net_type_vals}), no active call to confirm"
+            return False, f"VoLTE uncertain — no active call, network type {net_type_vals}"
+
+    # ── 3. Fallback: system properties ──────────────────────────────
+    ok3, prop = _run(_serial_args(serial) + ["shell", "getprop", "persist.dbg.volte_avail_ovr"])
+    if ok3 and prop.strip() == "1":
+        return True, "VoLTE ACTIVE — persist.dbg.volte_avail_ovr=1"
+    ok4, prop2 = _run(_serial_args(serial) + ["shell", "getprop", "ro.config.ims_package"])
+    if ok4 and prop2.strip():
+        return True, f"VoLTE supported — IMS package: {prop2.strip()}"
+
+    return False, "VoLTE status unknown — could not read IMS or telephony state"
+
+
+
     """Dial a USSD code and return the network's response text."""
     log = get_logger()
     encoded = urllib.parse.quote(code, safe="*+")
