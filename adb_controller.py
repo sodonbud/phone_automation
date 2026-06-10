@@ -830,23 +830,46 @@ def check_volte(serial: str) -> Result:
     # ── 1. telephony.registry — most reliable cross-device source ────
     ok, reg = _run(_serial_args(serial) + ["shell", "dumpsys", "telephony.registry"])
     if ok and reg:
-        # Collect all values for multi-SIM devices
         call_states  = [int(x) for x in re.findall(r"mCallState\s*=\s*(\d+)", reg)]
         voice_types  = [int(x) for x in re.findall(r"mVoiceNetworkType\s*=\s*(\d+)", reg)]
         data_types   = [int(x) for x in re.findall(r"mDataNetworkType\s*=\s*(\d+)", reg)]
-        net_types    = voice_types or data_types   # prefer voice network type
+        net_types    = voice_types or data_types
         in_call      = any(s in (1, 2) for s in call_states)
         on_lte       = bool(set(net_types) & _VOLTE_NETS)
         active_net   = next((n for n in net_types if n in _VOLTE_NETS), net_types[0] if net_types else 0)
         net_name     = _NET_LABELS.get(active_net, f"type {active_net}")
-        log.info("telephony.registry: call_states=%s voice_types=%s data_types=%s",
-                 call_states, voice_types, data_types)
+
+        # imsCallType inside mCallStateLists: 0=none, 1=video, 2=voice(VoLTE), 3=UT
+        # This is the most definitive VoLTE signal — present on Samsung & Pixel
+        ims_call_types = [int(x) for x in re.findall(r"imsCallType\s*:\s*(\d+)", reg)]
+        ims_svc_types  = [int(x) for x in re.findall(r"imsCallServiceType\s*:\s*(\d+)", reg)]
+        volte_by_ims   = any(t in (1, 2) for t in ims_call_types)  # 1=video, 2=voice
+
+        log.info(
+            "telephony.registry: call_states=%s voice_types=%s data_types=%s "
+            "ims_call_types=%s ims_svc_types=%s",
+            call_states, voice_types, data_types, ims_call_types, ims_svc_types,
+        )
 
         if in_call:
+            if volte_by_ims:
+                call_type_name = {1: "Video (ViLTE)", 2: "Voice (VoLTE)"}.get(
+                    next(t for t in ims_call_types if t in (1, 2)), "IMS"
+                )
+                return True, f"VoLTE ACTIVE — {call_type_name} call via IMS (imsCallType={ims_call_types})"
             if on_lte:
                 return True, f"VoLTE ACTIVE — call in progress on {net_name}"
-            else:
-                return False, f"VoLTE INACTIVE — call on non-LTE network ({net_name})"
+            return False, f"VoLTE INACTIVE — call active but imsCallType={ims_call_types}, network={net_name}"
+
+        # No active call — check network readiness
+        if ims_call_types:
+            # Stale entry from previous call or background IMS session
+            log.info("No active call but imsCallType entries exist: %s", ims_call_types)
+        if on_lte:
+            return True, (
+                f"VoLTE likely supported — on {net_name}, no active call to confirm. "
+                "Run CHECK_VOLTE again during a call for definitive result."
+            )
 
     # ── 2. dumpsys ims — IMS service registration ────────────────────
     ok2, ims = _run(_serial_args(serial) + ["shell", "dumpsys", "ims"])
