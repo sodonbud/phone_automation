@@ -3,27 +3,67 @@
 
 from __future__ import annotations
 
+import importlib
 import io
-import json
 import os
+import re
 import sys
 
 from flask import Flask, jsonify, render_template_string, request, send_file
 
+CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.py")
+
 # ── Load config safely ────────────────────────────────────────────────────────
-sys.path.insert(0, os.path.dirname(__file__))
-try:
-    import config as _cfg
-    PHONE_NUMBERS = getattr(_cfg, "PHONE_NUMBERS", {})
-    DEVICES = getattr(_cfg, "DEVICE_NAMES", list(getattr(_cfg, "DEVICES", {}).keys()))
-    if isinstance(DEVICES, list):
-        DEVICE_NAMES = DEVICES
-    else:
-        DEVICE_NAMES = list(DEVICES.keys())
-    DEVICE_NAMES = list(getattr(_cfg, "DEVICES", {}).keys())
-except ImportError:
-    PHONE_NUMBERS = {"Phone1": "+97699001111", "Phone2": "+97699002222"}
-    DEVICE_NAMES = ["Phone1", "Phone2"]
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+def _load_config():
+    try:
+        import config as _cfg
+        importlib.reload(_cfg)
+        return {
+            "PHONE_NUMBERS": dict(getattr(_cfg, "PHONE_NUMBERS", {})),
+            "DEVICES": dict(getattr(_cfg, "DEVICES", {})),
+        }
+    except ImportError:
+        return {
+            "PHONE_NUMBERS": {"Phone1": "+97699001111", "Phone2": "+97699002222"},
+            "DEVICES": {"Phone1": "SERIALABC123", "Phone2": "SERIALDEF456"},
+        }
+
+_cfg_data = _load_config()
+PHONE_NUMBERS = _cfg_data["PHONE_NUMBERS"]
+DEVICES_MAP   = _cfg_data["DEVICES"]
+DEVICE_NAMES  = list(DEVICES_MAP.keys())
+
+
+def _save_config(new_phones: dict, new_serials: dict) -> None:
+    """Rewrite PHONE_NUMBERS and DEVICES blocks in config.py in-place."""
+    with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+        src = f.read()
+
+    # Build replacement blocks
+    phones_block = "PHONE_NUMBERS = {\n"
+    for k, v in new_phones.items():
+        phones_block += f'    "{k}": "{v}",\n'
+    phones_block += "}"
+
+    serials_block = "DEVICES = {\n"
+    for k, v in new_serials.items():
+        serials_block += f'    "{k}": "{v}",\n'
+    serials_block += "}"
+
+    src = re.sub(r"DEVICES\s*=\s*\{[^}]*\}", serials_block, src, count=1)
+    src = re.sub(r"PHONE_NUMBERS\s*=\s*\{[^}]*\}", phones_block, src, count=1)
+
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+        f.write(src)
+
+    # Reload module-level vars
+    global PHONE_NUMBERS, DEVICES_MAP, DEVICE_NAMES
+    d = _load_config()
+    PHONE_NUMBERS = d["PHONE_NUMBERS"]
+    DEVICES_MAP   = d["DEVICES"]
+    DEVICE_NAMES  = list(DEVICES_MAP.keys())
 
 # ── Action metadata ───────────────────────────────────────────────────────────
 ACTIONS = [
@@ -268,6 +308,19 @@ HTML = r"""<!DOCTYPE html>
   .toast.success { border-color: var(--success); }
   .toast.error { border-color: var(--danger); }
 
+  /* ── Device panel ── */
+  .device-panel { border-top: 1px solid var(--border); padding: 10px; margin-top: 4px; }
+  .device-panel h2 { font-size: .7rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 8px; padding: 0 4px; display: flex; align-items: center; justify-content: space-between; }
+  .device-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 8px; }
+  .device-card .device-title { font-size: .78rem; font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+  .device-card .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+  .device-card .dot.online { background: var(--success); }
+  .device-label { font-size: .62rem; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin-bottom: 2px; margin-top: 6px; }
+  .device-input { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 5px; padding: 4px 7px; font-size: .75rem; outline: none; transition: border-color .15s; }
+  .device-input:focus { border-color: var(--accent); }
+  .save-config-btn { width: 100%; margin-top: 8px; padding: 6px; font-size: .75rem; font-weight: 600; background: var(--accent); color: #fff; border: none; border-radius: 6px; cursor: pointer; transition: opacity .15s; }
+  .save-config-btn:hover { opacity: .85; }
+
   /* Scrollbar */
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -291,6 +344,12 @@ HTML = r"""<!DOCTYPE html>
   <aside class="palette">
     <h2>Actions</h2>
     <div id="palette"></div>
+    <!-- Device config panel -->
+    <div class="device-panel">
+      <h2>Devices <span style="font-size:.6rem;color:var(--accent);cursor:pointer" onclick="refreshDevices()">↻ refresh</span></h2>
+      <div id="device-cards"></div>
+      <button class="save-config-btn" onclick="saveConfig()">💾 Save to config.py</button>
+    </div>
   </aside>
 
   <!-- Canvas -->
@@ -314,14 +373,62 @@ HTML = r"""<!DOCTYPE html>
 
 <script>
 const ACTIONS = {{ actions|tojson }};
-const PHONES = {{ phones|tojson }};
-const PHONE_NUMBERS = {{ phone_numbers|tojson }};
+let PHONES = {{ phones|tojson }};
+let PHONE_NUMBERS = {{ phone_numbers|tojson }};
+let DEVICES_MAP = {{ devices_map|tojson }};
 
 let steps = [];
 let dragSrc = null;      // palette card action id
 let dragStepIdx = null;  // step reorder index
 let selectedIdx = null;
 let stepCounter = 0;
+
+// ── Device panel ──────────────────────────────────────────────────────────────
+async function refreshDevices() {
+  const res = await fetch('/config');
+  const d = await res.json();
+  PHONES = Object.keys(d.devices);
+  PHONE_NUMBERS = d.phone_numbers;
+  DEVICES_MAP = d.devices;
+  buildDeviceCards(d);
+}
+
+function buildDeviceCards(d) {
+  const el = document.getElementById('device-cards');
+  el.innerHTML = '';
+  Object.keys(d.devices).forEach(name => {
+    const serial  = d.devices[name] || '';
+    const number  = d.phone_numbers[name] || '';
+    const online  = (d.online || []).includes(serial);
+    el.innerHTML += `
+      <div class="device-card">
+        <div class="device-title">
+          <span class="dot ${online ? 'online' : ''}"></span>
+          <span>${name}</span>
+          <span style="font-size:.6rem;color:var(--muted);margin-left:auto">${online ? '🟢 connected' : '⚫ offline'}</span>
+        </div>
+        <div class="device-label">Serial</div>
+        <input class="device-input" id="serial_${name}" value="${serial}" placeholder="device serial">
+        <div class="device-label">Phone Number</div>
+        <input class="device-input" id="number_${name}" value="${number}" placeholder="+976...">
+      </div>`;
+  });
+}
+
+async function saveConfig() {
+  const phones = {}, serials = {};
+  PHONES.forEach(name => {
+    serials[name] = document.getElementById('serial_' + name)?.value || DEVICES_MAP[name] || '';
+    phones[name]  = document.getElementById('number_' + name)?.value || PHONE_NUMBERS[name] || '';
+  });
+  const res = await fetch('/config', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ phone_numbers: phones, devices: serials }) });
+  if (res.ok) {
+    PHONE_NUMBERS = phones; DEVICES_MAP = serials;
+    toast('Config saved to config.py ✓', 'success');
+  } else {
+    toast('Save failed: ' + await res.text(), 'error');
+  }
+}
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 function buildPalette() {
@@ -338,6 +445,7 @@ function buildPalette() {
     card.addEventListener('dblclick', () => addStep(a.id));
     el.appendChild(card);
   });
+  refreshDevices();
 }
 
 // ── Step data ─────────────────────────────────────────────────────────────────
@@ -453,7 +561,8 @@ function makeSelect(idx, field, label, options) {
   const sel = document.createElement('select');
   options.forEach(o => {
     const opt = document.createElement('option');
-    opt.value = o; opt.textContent = o;
+    opt.value = o;
+    opt.textContent = PHONE_NUMBERS[o] ? `${o}  (${PHONE_NUMBERS[o]})` : o;
     if (steps[idx][field] === o) opt.selected = true;
     sel.appendChild(opt);
   });
@@ -546,6 +655,7 @@ function esc(s) { return String(s).replace(/"/g,'&quot;'); }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 buildPalette();
+buildDeviceCards({ devices: DEVICES_MAP, phone_numbers: PHONE_NUMBERS, online: [] });
 render();
 </script>
 </body>
@@ -555,36 +665,70 @@ render();
 
 @app.route("/")
 def index():
-    phones = DEVICE_NAMES
-    phone_numbers = PHONE_NUMBERS
     return render_template_string(
         HTML,
         actions=ACTIONS,
-        phones=phones,
-        phone_numbers=phone_numbers,
+        phones=DEVICE_NAMES,
+        phone_numbers=PHONE_NUMBERS,
+        devices_map=DEVICES_MAP,
     )
+
+
+@app.route("/config", methods=["GET"])
+def get_config():
+    """Return current devices + phone numbers + online status."""
+    # Try to get connected serials via adb
+    online = []
+    try:
+        import adb_controller as adb
+        online = adb.get_connected_devices()
+    except Exception:
+        pass
+    return jsonify({
+        "devices": DEVICES_MAP,
+        "phone_numbers": PHONE_NUMBERS,
+        "online": online,
+    })
+
+
+@app.route("/config", methods=["POST"])
+def post_config():
+    """Save updated devices + phone numbers to config.py."""
+    data = request.get_json(force=True)
+    new_phones  = data.get("phone_numbers", {})
+    new_serials = data.get("devices", {})
+    if not new_phones or not new_serials:
+        return "Missing phone_numbers or devices", 400
+    try:
+        _save_config(new_phones, new_serials)
+    except Exception as exc:
+        return str(exc), 500
+    return jsonify({"ok": True})
 
 
 @app.route("/template")
 def template():
-    """Return the default template steps as JSON."""
-    p1 = PHONE_NUMBERS.get("Phone1", "+97699001111")
-    p2 = PHONE_NUMBERS.get("Phone2", "+97699002222")
+    """Return the default template steps as JSON using current config numbers."""
+    names = list(PHONE_NUMBERS.keys())
+    n1 = names[0] if len(names) > 0 else "Phone1"
+    n2 = names[1] if len(names) > 1 else "Phone2"
+    p1 = PHONE_NUMBERS.get(n1, "+97699001111")
+    p2 = PHONE_NUMBERS.get(n2, "+97699002222")
     steps = [
-        {"_isSection": True, "label": "CALL TEST — Phone1 calls Phone2, Phone2 answers, verify via call log"},
-        {"action": "CALL",         "target": "Phone1", "number": p2,               "value": "",                  "expected": ""},
-        {"action": "ANSWER_CALL",  "target": "Phone2", "number": "",               "value": "20",                "expected": "Call answered"},
-        {"action": "WAIT",         "target": "Phone1", "number": "10",             "value": "",                  "expected": ""},
-        {"action": "END_CALL",     "target": "Phone1", "number": "",               "value": "",                  "expected": ""},
-        {"action": "CHECK_CALL",   "target": "Phone1", "number": p2,               "value": "OUTGOING",          "expected": "Call verified"},
-        {"action": "CHECK_CALL",   "target": "Phone2", "number": p1,               "value": "INCOMING",          "expected": "Call verified"},
-        {"_isSection": True, "label": "SMS TEST — Phone1 sends SMS, verify it arrives on Phone2"},
-        {"action": "SMS",          "target": "Phone1", "number": p2,               "value": "Hello from Phone1", "expected": ""},
-        {"action": "WAIT",         "target": "Phone1", "number": "5",              "value": "",                  "expected": ""},
-        {"action": "CHECK_SMS",    "target": "Phone2", "number": p1,               "value": "Hello from Phone1", "expected": "Hello from Phone1"},
+        {"_isSection": True, "label": f"CALL TEST — {n1} calls {n2}, {n2} answers, verify via call log"},
+        {"action": "CALL",         "target": n1, "number": p2,               "value": "",                  "expected": ""},
+        {"action": "ANSWER_CALL",  "target": n2, "number": "",               "value": "20",                "expected": "Call answered"},
+        {"action": "WAIT",         "target": n1, "number": "10",             "value": "",                  "expected": ""},
+        {"action": "END_CALL",     "target": n1, "number": "",               "value": "",                  "expected": ""},
+        {"action": "CHECK_CALL",   "target": n1, "number": p2,               "value": "OUTGOING",          "expected": "Call verified"},
+        {"action": "CHECK_CALL",   "target": n2, "number": p1,               "value": "INCOMING",          "expected": "Call verified"},
+        {"_isSection": True, "label": f"SMS TEST — {n1} sends SMS, verify it arrives on {n2}"},
+        {"action": "SMS",          "target": n1, "number": p2,               "value": f"Hello from {n1}",  "expected": ""},
+        {"action": "WAIT",         "target": n1, "number": "5",              "value": "",                  "expected": ""},
+        {"action": "CHECK_SMS",    "target": n2, "number": p1,               "value": f"Hello from {n1}",  "expected": f"Hello from {n1}"},
         {"_isSection": True, "label": "USSD TEST — Dial USSD on each phone, capture network response"},
-        {"action": "USSD",         "target": "Phone1", "number": "*100#",          "value": "",                  "expected": ""},
-        {"action": "USSD",         "target": "Phone2", "number": "*100#",          "value": "",                  "expected": ""},
+        {"action": "USSD",         "target": n1, "number": "*100#",          "value": "",                  "expected": ""},
+        {"action": "USSD",         "target": n2, "number": "*100#",          "value": "",                  "expected": ""},
     ]
     return jsonify({"steps": steps})
 
