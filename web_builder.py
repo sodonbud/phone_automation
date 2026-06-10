@@ -261,7 +261,7 @@ HTML = r"""<!DOCTYPE html>
   .action-card .desc { font-size: .67rem; font-weight: 400; opacity: .75; margin-top: 2px; }
 
   /* ── Canvas split ── */
-  .canvas-wrap { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .canvas-wrap { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
   .canvas-toolbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 8px 16px; display: flex; gap: 8px; align-items: center; }
   .canvas-toolbar span { color: var(--muted); font-size: .78rem; }
   .canvas-toolbar .spacer { flex: 1; }
@@ -296,32 +296,63 @@ HTML = r"""<!DOCTYPE html>
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.7} }
 
   /* ── Run panel ── */
+  /* ── Run panel (full-height overlay) ── */
   .run-panel {
-    background: #0a0c14; border-top: 2px solid var(--border);
+    background: #0a0c14;
     display: flex; flex-direction: column;
-    height: 0; overflow: hidden;
-    transition: height .3s ease;
+    position: absolute; inset: 0;
+    z-index: 10;
+    opacity: 0; pointer-events: none;
+    transform: translateY(12px);
+    transition: opacity .25s ease, transform .25s ease;
   }
-  .run-panel.open { height: 260px; }
+  .run-panel.open { opacity: 1; pointer-events: all; transform: translateY(0); }
   .run-panel-header {
     display: flex; align-items: center; gap: 10px;
-    padding: 8px 16px; background: var(--surface);
+    padding: 10px 18px; background: var(--surface);
     border-bottom: 1px solid var(--border); flex-shrink: 0;
   }
-  .run-title { font-size: .8rem; font-weight: 700; color: var(--text); }
-  .run-summary { font-size: .75rem; color: var(--muted); }
-  .run-log { flex: 1; overflow-y: auto; padding: 8px 16px; font-family: 'Cascadia Code','Consolas',monospace; font-size: .75rem; }
-  .log-row { display: flex; align-items: flex-start; gap: 10px; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,.04); }
-  .log-step { color: var(--muted); min-width: 22px; flex-shrink: 0; }
-  .log-action { min-width: 110px; flex-shrink: 0; }
-  .log-target { color: var(--muted); min-width: 70px; flex-shrink: 0; }
+  .run-title { font-size: .85rem; font-weight: 700; color: var(--text); }
+  .run-summary { font-size: .78rem; color: var(--muted); display: flex; gap: 10px; }
+  .run-log { flex: 1; overflow-y: auto; padding: 10px 20px; font-family: 'Cascadia Code','Consolas',monospace; font-size: .75rem; }
+  .log-row { display: flex; align-items: flex-start; gap: 10px; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,.04); }
+  .log-step { color: var(--muted); min-width: 26px; flex-shrink: 0; text-align: right; }
+  .log-action { min-width: 130px; flex-shrink: 0; }
+  .log-target { color: var(--muted); min-width: 75px; flex-shrink: 0; }
   .log-output { color: #a0aec0; flex: 1; word-break: break-word; }
-  .log-badge { display: inline-block; padding: 1px 8px; border-radius: 99px; font-size: .65rem; font-weight: 800; letter-spacing: .5px; min-width: 42px; text-align: center; }
+  .log-badge { display: inline-block; padding: 2px 9px; border-radius: 99px; font-size: .65rem; font-weight: 800; letter-spacing: .5px; min-width: 46px; text-align: center; flex-shrink: 0; }
   .badge-pass { background: #1a4731; color: #48bb78; border: 1px solid #276749; }
   .badge-fail { background: #4a1515; color: #fc8181; border: 1px solid #742a2a; }
   .badge-skip { background: #3d3200; color: #f6e05e; border: 1px solid #744210; }
   .badge-run  { background: #1a1f3c; color: #90cdf4; border: 1px solid #2c5282; }
-  .log-section { color: var(--accent); font-weight: 700; padding: 6px 0 2px; font-size: .72rem; }
+  .log-section { color: var(--accent); font-weight: 700; padding: 8px 0 3px; font-size: .72rem; letter-spacing: .3px; }
+  .log-done-banner { text-align:center; padding: 18px 0 6px; color: var(--muted); font-size: .8rem; border-top: 1px solid var(--border); margin-top: 8px; }
+
+  /* ── Report modal ── */
+  .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:100; display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity .2s; }
+  .modal-backdrop.open { opacity:1; pointer-events:all; }
+  .modal { background:var(--surface); border:1px solid var(--border); border-radius:14px; width:min(820px,96vw); max-height:88vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 24px 60px rgba(0,0,0,.6); transform:scale(.96); transition:transform .2s; }
+  .modal-backdrop.open .modal { transform:scale(1); }
+  .modal-header { padding:16px 22px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:12px; flex-shrink:0; }
+  .modal-header h2 { font-size:1rem; font-weight:700; flex:1; }
+  .modal-body { overflow-y:auto; padding:20px 22px; }
+  .report-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:22px; }
+  .stat-card { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:14px 16px; text-align:center; }
+  .stat-num { font-size:2rem; font-weight:800; line-height:1; }
+  .stat-label { font-size:.68rem; text-transform:uppercase; letter-spacing:.8px; color:var(--muted); margin-top:4px; }
+  .stat-total .stat-num { color:var(--text); }
+  .stat-pass  .stat-num { color:#48bb78; }
+  .stat-fail  .stat-num { color:#fc8181; }
+  .stat-skip  .stat-num { color:#f6e05e; }
+  .report-bar { height:8px; border-radius:99px; background:var(--border); overflow:hidden; margin-bottom:22px; display:flex; }
+  .bar-pass { background:#276749; transition:width .5s; }
+  .bar-fail { background:#742a2a; transition:width .5s; }
+  .bar-skip { background:#744210; transition:width .5s; }
+  .report-table { width:100%; border-collapse:collapse; font-size:.78rem; }
+  .report-table th { background:var(--surface2); color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:.5px; padding:8px 10px; border-bottom:2px solid var(--border); text-align:left; white-space:nowrap; position:sticky; top:0; }
+  .report-table td { padding:7px 10px; border-bottom:1px solid var(--border); vertical-align:top; }
+  .report-table tr:hover td { background:var(--surface2); }
+  .report-table .sec-row td { background:var(--surface2); color:var(--accent); font-weight:700; font-size:.72rem; }
   .step {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 10px; padding: 0;
@@ -447,6 +478,18 @@ HTML = r"""<!DOCTYPE html>
       <button class="btn btn-ghost" style="font-size:.75rem;padding:4px 10px" onclick="closeRun()">✕</button>
     </div>
     <div class="run-log" id="run-log"></div>
+  </div>
+</div>
+
+<!-- Report modal -->
+<div class="modal-backdrop" id="report-modal" onclick="if(event.target===this)closeReport()">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>📊 Test Report</h2>
+      <span id="report-ts" style="font-size:.72rem;color:var(--muted)"></span>
+      <button class="btn btn-ghost" style="padding:5px 12px;font-size:.78rem" onclick="closeReport()">✕ Close</button>
+    </div>
+    <div class="modal-body" id="report-body"></div>
   </div>
 </div>
 
@@ -768,8 +811,10 @@ async function loadTemplate() {
 
 // ── Run Test ──────────────────────────────────────────────────────────────────
 let _runActive = false;
-let _runAbort = null;
-let _pass = 0, _fail = 0, _skip = 0;
+let _runAbort  = null;
+let _pass = 0, _fail = 0, _skip = 0, _total = 0;
+let _runLog    = [];   // {type, step, action, target, result, output, label}
+let _runTs     = '';
 
 function toggleRun() {
   if (_runActive) { stopRun(); } else { startRun(); }
@@ -784,8 +829,12 @@ function closeRun() {
 }
 function clearRun() {
   document.getElementById('run-log').innerHTML = '';
-  document.getElementById('run-summary').textContent = '';
-  _pass = 0; _fail = 0; _skip = 0;
+  document.getElementById('run-summary').innerHTML = '';
+  _pass = 0; _fail = 0; _skip = 0; _total = 0;
+  _runLog = [];
+  // hide report button if present
+  const rb = document.getElementById('report-btn');
+  if (rb) rb.remove();
 }
 
 function stopRun() {
@@ -798,7 +847,8 @@ function stopRun() {
 async function startRun() {
   if (steps.length === 0) { toast('No steps to run.', 'error'); return; }
   clearRun(); openRunPanel();
-  _runActive = true; _pass = 0; _fail = 0; _skip = 0;
+  _runActive = true; _pass = 0; _fail = 0; _skip = 0; _total = 0; _runLog = [];
+  _runTs = new Date().toLocaleString();
   const btn = document.getElementById('run-btn');
   btn.textContent = '■ Stop'; btn.classList.add('running');
 
@@ -817,7 +867,6 @@ async function startRun() {
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buf = '';
-
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;
@@ -827,8 +876,7 @@ async function startRun() {
       for (const part of parts) {
         const line = part.replace(/^data: /, '').trim();
         if (!line) continue;
-        const ev = JSON.parse(line);
-        appendLogRow(ev, log);
+        appendLogRow(JSON.parse(line), log);
       }
     }
   } catch (e) {
@@ -838,39 +886,121 @@ async function startRun() {
 }
 
 function appendLogRow(ev, log) {
+  _runLog.push(ev);
   const row = document.createElement('div');
 
   if (ev.type === 'section') {
     row.className = 'log-section';
-    row.textContent = '▸ ' + ev.label;
+    row.textContent = '▸ ' + (ev.label || '');
     log.appendChild(row); log.scrollTop = log.scrollHeight; return;
   }
 
   if (ev.type === 'done') {
-    const s = document.getElementById('run-summary');
-    s.innerHTML = `<span style="color:#48bb78">✓${ev.passed}</span>  <span style="color:#fc8181">✗${ev.failed}</span>  <span style="color:#f6e05e">—${ev.skipped}</span>  <span style="color:var(--muted)">/${ev.total}</span>`;
-    row.style.cssText = 'padding:8px 0;color:var(--muted);font-size:.72rem;border-top:1px solid var(--border);margin-top:4px';
-    row.textContent = `Finished — ${ev.passed} passed, ${ev.failed} failed, ${ev.skipped} skipped`;
+    _total = ev.total;
+    // Update header summary
+    document.getElementById('run-summary').innerHTML =
+      `<span style="color:#48bb78">✓ ${ev.passed} passed</span>
+       <span style="color:#fc8181">✗ ${ev.failed} failed</span>
+       <span style="color:#f6e05e">— ${ev.skipped} skipped</span>
+       <span style="color:var(--muted)">of ${ev.total}</span>`;
+    // Done banner + report button
+    row.className = 'log-done-banner';
+    row.innerHTML = `
+      Test run complete &nbsp;·&nbsp;
+      <strong style="color:${ev.failed>0?'#fc8181':'#48bb78'}">${ev.failed>0?ev.failed+' failure(s)':'All passed'}</strong>
+      &nbsp;&nbsp;
+      <button class="btn btn-primary" id="report-btn" style="padding:5px 14px;font-size:.78rem" onclick="openReport()">📊 View Report</button>`;
     log.appendChild(row); log.scrollTop = log.scrollHeight; return;
   }
 
   const result = (ev.result || 'RUN').toUpperCase();
-  if (result === 'PASS') _pass++; else if (result === 'FAIL') _fail++; else if (result === 'SKIP') _skip++;
-  const badge = { PASS: 'badge-pass', FAIL: 'badge-fail', SKIP: 'badge-skip', RUN: 'badge-run' }[result] || 'badge-run';
-  const a = ACTIONS.find(x => x.id === ev.action) || { color: '#555', icon: '' };
+  if (result === 'PASS') _pass++;
+  else if (result === 'FAIL') _fail++;
+  else if (result === 'SKIP') _skip++;
+  const badge = { PASS:'badge-pass', FAIL:'badge-fail', SKIP:'badge-skip', RUN:'badge-run' }[result] || 'badge-run';
+  const a = ACTIONS.find(x => x.id === ev.action) || { color:'#555', icon:'' };
   row.className = 'log-row';
   row.innerHTML = `
     <span class="log-step">${ev.step ?? ''}</span>
-    <span class="log-action"><span class="action-pill" style="background:${a.color}">${a.icon} ${ev.action}</span></span>
+    <span class="log-action"><span class="action-pill" style="background:${a.color}">${a.icon} ${esc(ev.action||'')}</span></span>
     <span class="log-target">${esc(ev.target || '')}</span>
     <span class="log-badge ${badge}">${result}</span>
-    <span class="log-output">${esc((ev.output || '').slice(0, 300))}</span>`;
+    <span class="log-output">${esc((ev.output || '').slice(0,300))}</span>`;
   log.appendChild(row);
   log.scrollTop = log.scrollHeight;
 
-  // update live summary in header
+  // live summary
   document.getElementById('run-summary').innerHTML =
-    `<span style="color:#48bb78">✓${_pass}</span>  <span style="color:#fc8181">✗${_fail}</span>  <span style="color:#f6e05e">—${_skip}</span>`;
+    `<span style="color:#48bb78">✓ ${_pass}</span>
+     <span style="color:#fc8181">✗ ${_fail}</span>
+     <span style="color:#f6e05e">— ${_skip}</span>`;
+}
+
+// ── Report modal ──────────────────────────────────────────────────────────────
+function openReport() {
+  const evs    = _runLog.filter(e => e.type === 'step');
+  const done   = _runLog.find(e => e.type === 'done') || {};
+  const total  = done.total  || evs.filter(e => e.result !== 'run').length;
+  const passed = done.passed || evs.filter(e => e.result === 'pass').length;
+  const failed = done.failed || evs.filter(e => e.result === 'fail').length;
+  const skipped= done.skipped|| evs.filter(e => e.result === 'skip').length;
+  const pct    = total ? Math.round(passed/total*100) : 0;
+
+  document.getElementById('report-ts').textContent = _runTs;
+
+  const passW  = total ? (passed /total*100).toFixed(1) : 0;
+  const failW  = total ? (failed /total*100).toFixed(1) : 0;
+  const skipW  = total ? (skipped/total*100).toFixed(1) : 0;
+
+  // Build rows — re-walk _runLog to keep sections
+  let rows = '';
+  let stepNum = 0;
+  let currentSection = '';
+  for (const ev of _runLog) {
+    if (ev.type === 'section') {
+      currentSection = ev.label || '';
+      rows += `<tr class="sec-row"><td colspan="5">▸ ${esc(currentSection)}</td></tr>`;
+      continue;
+    }
+    if (ev.type !== 'step' || ev.result === 'run') continue;
+    stepNum++;
+    const r = (ev.result || 'skip').toUpperCase();
+    const badge = { PASS:'badge-pass', FAIL:'badge-fail', SKIP:'badge-skip' }[r] || 'badge-skip';
+    const a = ACTIONS.find(x => x.id === ev.action) || { color:'#555', icon:'' };
+    rows += `<tr>
+      <td style="color:var(--muted);text-align:center">${ev.step ?? stepNum}</td>
+      <td><span class="action-pill" style="background:${a.color}">${a.icon} ${esc(ev.action||'')}</span></td>
+      <td style="color:var(--muted)">${esc(ev.target||'')}</td>
+      <td><span class="log-badge ${badge}">${r}</span></td>
+      <td style="color:#a0aec0;font-size:.73rem">${esc((ev.output||'').slice(0,300))}</td>
+    </tr>`;
+  }
+
+  document.getElementById('report-body').innerHTML = `
+    <div class="report-stats">
+      <div class="stat-card stat-total"><div class="stat-num">${total}</div><div class="stat-label">Total</div></div>
+      <div class="stat-card stat-pass" ><div class="stat-num">${passed}</div><div class="stat-label">Passed</div></div>
+      <div class="stat-card stat-fail" ><div class="stat-num">${failed}</div><div class="stat-label">Failed</div></div>
+      <div class="stat-card stat-skip" ><div class="stat-num">${skipped}</div><div class="stat-label">Skipped</div></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+      <div class="report-bar" style="flex:1">
+        <div class="bar-pass" style="width:${passW}%"></div>
+        <div class="bar-fail" style="width:${failW}%"></div>
+        <div class="bar-skip" style="width:${skipW}%"></div>
+      </div>
+      <span style="font-size:.8rem;color:${pct===100?'#48bb78':pct>60?'#f6e05e':'#fc8181'};font-weight:700;min-width:38px">${pct}%</span>
+    </div>
+    <table class="report-table">
+      <thead><tr><th>#</th><th>Action</th><th>Target</th><th>Result</th><th>Output</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+
+  document.getElementById('report-modal').classList.add('open');
+}
+
+function closeReport() {
+  document.getElementById('report-modal').classList.remove('open');
 }
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
