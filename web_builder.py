@@ -388,12 +388,27 @@ HTML = r"""<!DOCTYPE html>
 
   /* Section divider */
   .section-row {
-    background: var(--surface2); border: 1px solid var(--border);
+    background: var(--surface2); border: 1px solid var(--accent);
     border-radius: 8px; padding: 8px 14px;
     display: flex; align-items: center; gap: 10px;
   }
-  .section-row input { background: transparent; border: none; color: var(--text); font-size: .85rem; font-weight: 700; flex: 1; outline: none; }
-  .section-row .tag { font-size: .65rem; background: var(--border); padding: 2px 7px; border-radius: 99px; color: var(--muted); }
+  .section-row input {
+    background: transparent; border: none; color: var(--accent);
+    font-size: .85rem; font-weight: 700; flex: 1; outline: none;
+    min-width: 0;
+  }
+  .section-row input::placeholder { color: var(--muted); font-weight: 400; }
+  .section-row .tag { font-size: .65rem; background: var(--accent); color: #fff; padding: 2px 7px; border-radius: 99px; flex-shrink: 0; }
+
+  /* ── Template manager modal ── */
+  .tpl-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; max-height: 260px; overflow-y: auto; }
+  .tpl-item { display: flex; align-items: center; gap: 8px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; }
+  .tpl-name { flex: 1; font-size: .85rem; font-weight: 600; }
+  .tpl-meta { font-size: .7rem; color: var(--muted); }
+  .tpl-empty { color: var(--muted); font-size: .85rem; text-align: center; padding: 24px; }
+  .save-tpl-row { display: flex; gap: 8px; padding-top: 12px; border-top: 1px solid var(--border); }
+  .save-tpl-row input { flex: 1; background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 7px 12px; font-size: .85rem; outline: none; }
+  .save-tpl-row input:focus { border-color: var(--accent); }
 
   /* Toast */
   .toast { position: fixed; bottom: 20px; right: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 18px; font-size: .85rem; color: var(--text); box-shadow: 0 8px 24px rgba(0,0,0,.4); transform: translateY(80px); opacity: 0; transition: all .3s; z-index: 1000; }
@@ -427,7 +442,7 @@ HTML = r"""<!DOCTYPE html>
   <div class="toolbar">
     <button class="btn btn-ghost" onclick="addSection()">+ Section</button>
     <button class="btn btn-ghost" onclick="clearAll()">Clear</button>
-    <button class="btn btn-ghost" onclick="loadTemplate()">Load Template</button>
+    <button class="btn btn-ghost" onclick="openTemplateManager()">📁 Templates</button>
     <button class="btn btn-success" onclick="exportExcel()">⬇ Export Excel</button>
     <button class="btn btn-run" id="run-btn" onclick="toggleRun()">▶ Run Test</button>
   </div>
@@ -478,6 +493,23 @@ HTML = r"""<!DOCTYPE html>
       <button class="btn btn-ghost" style="font-size:.75rem;padding:4px 10px" onclick="closeRun()">✕</button>
     </div>
     <div class="run-log" id="run-log"></div>
+  </div>
+</div>
+
+<!-- Template manager modal -->
+<div class="modal-backdrop" id="tpl-modal" onclick="if(event.target===this)closeTplModal()">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header">
+      <h2>📁 Templates</h2>
+      <button class="btn btn-ghost" style="padding:5px 12px;font-size:.78rem" onclick="closeTplModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="tpl-list" id="tpl-list"></div>
+      <div class="save-tpl-row">
+        <input id="tpl-name-input" placeholder="Template name…" onkeydown="if(event.key==='Enter')saveTpl()">
+        <button class="btn btn-primary" onclick="saveTpl()">💾 Save current</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -612,7 +644,26 @@ function render() {
     if (s._isSection) {
       const row = document.createElement('div');
       row.className = 'section-row';
-      row.innerHTML = `<span class="tag">SECTION</span><input value="${esc(s.label)}" oninput="steps[${idx}].label=this.value" placeholder="Section title..."><button class="step-btn" onclick="removeStep(${idx})">✕</button>`;
+
+      const tag = document.createElement('span');
+      tag.className = 'tag';
+      tag.textContent = 'SECTION';
+
+      const inp = document.createElement('input');
+      inp.value = s.label || '';
+      inp.placeholder = 'Section title…';
+      inp.addEventListener('input', e => { steps[idx].label = e.target.value; renderPreview(); });
+      inp.addEventListener('click', e => e.stopPropagation());
+
+      const del = document.createElement('button');
+      del.className = 'step-btn';
+      del.title = 'Remove section';
+      del.textContent = '✕';
+      del.addEventListener('click', e => { e.stopPropagation(); removeStep(idx); });
+
+      row.appendChild(tag);
+      row.appendChild(inp);
+      row.appendChild(del);
       list.appendChild(row);
       return;
     }
@@ -800,13 +851,91 @@ async function exportExcel() {
 }
 
 // ── Load template ─────────────────────────────────────────────────────────────
-async function loadTemplate() {
-  if (steps.length && !confirm('Replace current workflow with template?')) return;
-  const res = await fetch('/template');
-  const data = await res.json();
-  steps = data.steps.map(s => ({ ...s, id: stepCounter++ }));
-  render();
-  toast('Template loaded.', 'success');
+// ── Template manager ─────────────────────────────────────────────────────────
+const TPL_KEY = 'phone_test_templates';
+
+function _loadTpls() {
+  try { return JSON.parse(localStorage.getItem(TPL_KEY) || '[]'); } catch { return []; }
+}
+function _saveTpls(list) {
+  localStorage.setItem(TPL_KEY, JSON.stringify(list));
+}
+
+function openTemplateManager() {
+  renderTplList();
+  document.getElementById('tpl-name-input').value = '';
+  document.getElementById('tpl-modal').classList.add('open');
+}
+function closeTplModal() {
+  document.getElementById('tpl-modal').classList.remove('open');
+}
+
+function renderTplList() {
+  const list = document.getElementById('tpl-list');
+  const tpls = _loadTpls();
+  list.innerHTML = '';
+
+  if (tpls.length === 0) {
+    list.innerHTML = '<div class="tpl-empty">No saved templates yet.<br>Build a workflow and save it below.</div>';
+  }
+
+  // Built-in default
+  const defBtn = document.createElement('div');
+  defBtn.className = 'tpl-item';
+  defBtn.innerHTML = `<span class="tpl-name">⭐ Default Template</span><span class="tpl-meta">built-in</span>`;
+  const loadDef = document.createElement('button');
+  loadDef.className = 'btn btn-ghost'; loadDef.style.cssText = 'padding:4px 10px;font-size:.75rem';
+  loadDef.textContent = 'Load';
+  loadDef.addEventListener('click', async () => {
+    if (steps.length && !confirm('Replace current workflow?')) return;
+    const res = await fetch('/template');
+    const data = await res.json();
+    steps = data.steps.map(s => ({ ...s, id: stepCounter++ }));
+    render(); closeTplModal(); toast('Default template loaded.', 'success');
+  });
+  defBtn.appendChild(loadDef);
+  list.appendChild(defBtn);
+
+  tpls.forEach((tpl, i) => {
+    const item = document.createElement('div');
+    item.className = 'tpl-item';
+    const stepCount = (tpl.steps || []).filter(s => !s._isSection).length;
+    item.innerHTML = `<span class="tpl-name">${esc(tpl.name)}</span><span class="tpl-meta">${stepCount} steps · ${tpl.date || ''}</span>`;
+
+    const loadBtn = document.createElement('button');
+    loadBtn.className = 'btn btn-ghost'; loadBtn.style.cssText = 'padding:4px 10px;font-size:.75rem';
+    loadBtn.textContent = 'Load';
+    loadBtn.addEventListener('click', () => {
+      if (steps.length && !confirm('Replace current workflow?')) return;
+      steps = (tpl.steps || []).map(s => ({ ...s, id: stepCounter++ }));
+      render(); closeTplModal(); toast(`"${tpl.name}" loaded.`, 'success');
+    });
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn btn-danger'; delBtn.style.cssText = 'padding:4px 8px;font-size:.75rem';
+    delBtn.textContent = '✕';
+    delBtn.addEventListener('click', () => {
+      const updated = _loadTpls(); updated.splice(i, 1); _saveTpls(updated); renderTplList();
+    });
+
+    item.appendChild(loadBtn);
+    item.appendChild(delBtn);
+    list.appendChild(item);
+  });
+}
+
+function saveTpl() {
+  const name = document.getElementById('tpl-name-input').value.trim();
+  if (!name) { toast('Enter a template name.', 'error'); return; }
+  if (steps.length === 0) { toast('No steps to save.', 'error'); return; }
+  const tpls = _loadTpls();
+  const existing = tpls.findIndex(t => t.name === name);
+  const entry = { name, date: new Date().toLocaleDateString(), steps: JSON.parse(JSON.stringify(steps)) };
+  if (existing >= 0) { tpls[existing] = entry; } else { tpls.push(entry); }
+  _saveTpls(tpls);
+  renderTplList();
+  document.getElementById('tpl-name-input').value = '';
+  toast(`Template "${name}" saved.`, 'success');
 }
 
 // ── Run Test ──────────────────────────────────────────────────────────────────
