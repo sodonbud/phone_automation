@@ -257,6 +257,63 @@ def get_connected_devices() -> list[str]:
     return serials
 
 
+def get_device_phone_number(serial: str) -> str:
+    """Try several methods to read the SIM phone number (MSISDN).
+
+    Returns the number string (e.g. +97694310546) or "" if unavailable.
+    Works on most Samsung and Pixel devices; restricted on some Android 12+ builds.
+    """
+    # ── 1. dumpsys iphonesubinfo ─────────────────────────────────────
+    ok, out = _run(_serial_args(serial) + ["shell", "dumpsys", "iphonesubinfo"])
+    if ok and out:
+        # "Line 1 Phone Number = +97694310546" style
+        for pattern in [
+            r"(?:line 1 phone number|phone number|msisdn|subscriber number)\s*=\s*([+\d][\d\s\-]{6,})",
+            r"(?:Line1Number|getLine1Number)\s*[=:]\s*([+\d][\d]{6,})",
+        ]:
+            m = re.search(pattern, out, re.IGNORECASE)
+            if m:
+                num = re.sub(r"\s", "", m.group(1)).strip()
+                if len(num) >= 7:
+                    return num
+
+    # ── 2. service call iphonesubinfo (slot 0) ───────────────────────
+    # Different Android versions use different transaction codes
+    for code in ["11", "15", "13"]:
+        ok2, raw = _run(_serial_args(serial) + ["shell", "service", "call", "iphonesubinfo", code])
+        if ok2 and raw:
+            # Output: Result: Parcel(...) '...+97694310546...'
+            chars = re.findall(r"'(.)'", raw)
+            candidate = "".join(chars).strip().replace("\x00", "")
+            candidate = re.sub(r"[^\d+]", "", candidate)
+            if candidate and len(candidate) >= 7:
+                return candidate
+
+    # ── 3. getprop (some OEM devices expose it) ───────────────────────
+    for prop in [
+        "gsm.sim.ril.number.1", "gsm.sim.ril.number",
+        "ril.msisdn.1", "ril.msisdn",
+        "persist.radio.msisdn.1", "persist.radio.msisdn",
+    ]:
+        ok3, val = _run(_serial_args(serial) + ["shell", "getprop", prop])
+        val = (val or "").strip()
+        if ok3 and val and re.match(r"[+\d]{7,}", val):
+            return val
+
+    return ""
+
+
+def get_device_model(serial: str) -> str:
+    """Return a human-readable model name for display (e.g. 'Samsung Galaxy S23')."""
+    ok, brand = _run(_serial_args(serial) + ["shell", "getprop", "ro.product.brand"])
+    ok2, model = _run(_serial_args(serial) + ["shell", "getprop", "ro.product.model"])
+    brand = (brand or "").strip()
+    model = (model or "").strip()
+    if brand and model:
+        return f"{brand.title()} {model}"
+    return model or serial
+
+
 def _get_screen_size(serial: str) -> tuple[int, int]:
     """Return (width, height) of the device screen."""
     ok, out = _run(_serial_args(serial) + ["shell", "wm", "size"])

@@ -457,6 +457,7 @@ HTML = r"""<!DOCTYPE html>
     <div class="device-panel">
       <h2>Devices <span style="font-size:.6rem;color:var(--accent);cursor:pointer" onclick="refreshDevices()">↻ refresh</span></h2>
       <div id="device-cards"></div>
+      <button class="save-config-btn" style="background:var(--surface2);color:var(--accent);border:1px solid var(--accent);margin-bottom:6px" onclick="autoDetect()">🔍 Auto Detect Devices</button>
       <button class="save-config-btn" onclick="saveConfig()">💾 Save to config.py</button>
     </div>
   </aside>
@@ -569,6 +570,43 @@ function buildDeviceCards(d) {
         <input class="device-input" id="number_${name}" value="${number}" placeholder="+976...">
       </div>`;
   });
+}
+
+async function autoDetect() {
+  toast('Detecting devices…', '');
+  const res = await fetch('/detect');
+  if (!res.ok) { toast('Detection failed', 'error'); return; }
+  const data = await res.json();
+  if (!data.devices || data.devices.length === 0) {
+    toast('No devices found — check USB & ADB', 'error'); return;
+  }
+
+  // Fill serial and phone number fields for each detected device slot
+  data.devices.forEach((dev, i) => {
+    const name = PHONES[i];
+    if (!name) return;
+    const sEl = document.getElementById('serial_' + name);
+    const nEl = document.getElementById('number_' + name);
+    if (sEl && dev.serial) sEl.value = dev.serial;
+    if (nEl && dev.number) nEl.value = dev.number;
+  });
+
+  // Update in-memory maps
+  data.devices.forEach((dev, i) => {
+    const name = PHONES[i];
+    if (!name) return;
+    if (dev.serial) DEVICES_MAP[name] = dev.serial;
+    if (dev.number) PHONE_NUMBERS[name] = dev.number;
+  });
+
+  const missing = data.devices.filter(d => !d.number).length;
+  if (missing > 0) {
+    toast(`Serials detected. ${missing} phone number(s) not readable — enter manually.`, '');
+  } else {
+    toast(`Detected ${data.devices.length} device(s) with phone numbers ✓`, 'success');
+  }
+
+  await refreshDevices();
 }
 
 async function saveConfig() {
@@ -1431,6 +1469,19 @@ def run_test():
         mimetype="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+@app.route("/detect")
+def detect_devices():
+    """Auto-detect connected ADB devices and try to read their phone numbers."""
+    import adb_controller as adb
+    serials = adb.get_connected_devices()
+    result = []
+    for serial in serials:
+        number = adb.get_device_phone_number(serial)
+        model  = adb.get_device_model(serial)
+        result.append({"serial": serial, "number": number, "model": model})
+    return jsonify({"devices": result})
 
 
 if __name__ == "__main__":
