@@ -747,7 +747,12 @@ function render() {
     fields.className = 'step-fields';
 
     if (a.fields.includes('target')) {
-      fields.appendChild(makeSelect(idx, 'target', 'Target Phone', PHONES));
+      const freeTargetActions = ['CALL', 'ANSWER_CALL'];
+      if (freeTargetActions.includes(s.action)) {
+        fields.appendChild(makeInput(idx, 'target', 'Target Phone', 'e.g. Phone1'));
+      } else {
+        fields.appendChild(makeSelect(idx, 'target', 'Target Phone', PHONES));
+      }
     }
     if (a.fields.includes('number')) {
       fields.appendChild(makeInput(idx, 'number', 'Number / Code', a.hints.number || ''));
