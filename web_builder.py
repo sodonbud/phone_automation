@@ -497,6 +497,17 @@ HTML = r"""<!DOCTYPE html>
   </div>
 </div>
 
+<!-- Device detect modal -->
+<div class="modal-backdrop" id="detect-modal" onclick="if(event.target===this)closeDetectModal()">
+  <div class="modal" style="max-width:540px">
+    <div class="modal-header">
+      <h2>🔍 Detected Devices</h2>
+      <button class="btn btn-ghost" style="padding:5px 12px;font-size:.78rem" onclick="closeDetectModal()">✕</button>
+    </div>
+    <div class="modal-body" id="detect-body"></div>
+  </div>
+</div>
+
 <!-- Template manager modal -->
 <div class="modal-backdrop" id="tpl-modal" onclick="if(event.target===this)closeTplModal()">
   <div class="modal" style="max-width:500px">
@@ -510,6 +521,18 @@ HTML = r"""<!DOCTYPE html>
         <input id="tpl-name-input" placeholder="Template name…" onkeydown="if(event.key==='Enter')saveTpl()">
         <button class="btn btn-primary" onclick="saveTpl()">💾 Save current</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Detect / Assign modal -->
+<div class="modal-backdrop" id="detect-modal" onclick="if(event.target===this)closeDetectModal()">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <h2>📡 Detected Devices</h2>
+      <button class="btn btn-ghost" style="padding:5px 12px;font-size:.78rem" onclick="closeDetectModal()">✕</button>
+    </div>
+    <div class="modal-body" id="detect-body">
     </div>
   </div>
 </div>
@@ -572,41 +595,112 @@ function buildDeviceCards(d) {
   });
 }
 
+function closeDetectModal() {
+  document.getElementById('detect-modal').classList.remove('open');
+}
+
 async function autoDetect() {
   toast('Detecting devices…', '');
   const res = await fetch('/detect');
   if (!res.ok) { toast('Detection failed', 'error'); return; }
   const data = await res.json();
   if (!data.devices || data.devices.length === 0) {
-    toast('No devices found — check USB & ADB', 'error'); return;
+    toast('No devices found — check USB cable / wireless debugging', 'error'); return;
   }
 
-  // Fill serial and phone number fields for each detected device slot
+  // Build assign UI in modal
+  const body = document.getElementById('detect-body');
+  body.innerHTML = '';
+
+  // Info banner
+  const info = document.createElement('div');
+  info.style.cssText = 'font-size:.8rem;color:var(--muted);margin-bottom:14px';
+  info.textContent = `${data.devices.length} device(s) found. Assign each to a phone slot then click Apply.`;
+  body.appendChild(info);
+
+  // One row per detected device
   data.devices.forEach((dev, i) => {
-    const name = PHONES[i];
-    if (!name) return;
-    const sEl = document.getElementById('serial_' + name);
-    const nEl = document.getElementById('number_' + name);
-    if (sEl && dev.serial) sEl.value = dev.serial;
-    if (nEl && dev.number) nEl.value = dev.number;
+    const row = document.createElement('div');
+    row.style.cssText = 'background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px';
+
+    // Model + serial
+    const title = document.createElement('div');
+    title.style.cssText = 'font-size:.85rem;font-weight:700;color:var(--text);margin-bottom:4px';
+    title.textContent = dev.model || dev.serial;
+    const serial = document.createElement('div');
+    serial.style.cssText = 'font-size:.7rem;color:var(--muted);word-break:break-all;margin-bottom:8px;font-family:monospace';
+    serial.textContent = dev.serial;
+    row.appendChild(title);
+    row.appendChild(serial);
+
+    // Assign dropdown + phone number input
+    const grid = document.createElement('div');
+    grid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:8px';
+
+    // Slot selector
+    const slotWrap = document.createElement('div');
+    slotWrap.innerHTML = '<div style="font-size:.65rem;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:3px">Assign to</div>';
+    const sel = document.createElement('select');
+    sel.id = `detect-slot-${i}`;
+    sel.style.cssText = 'width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 8px;font-size:.8rem;outline:none';
+    const optNone = document.createElement('option'); optNone.value = ''; optNone.textContent = '— skip —'; sel.appendChild(optNone);
+    PHONES.forEach((p, pi) => {
+      const opt = document.createElement('option');
+      opt.value = p; opt.textContent = p;
+      if (pi === i) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    slotWrap.appendChild(sel);
+
+    // Phone number
+    const numWrap = document.createElement('div');
+    numWrap.innerHTML = '<div style="font-size:.65rem;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:3px">Phone Number</div>';
+    const numInp = document.createElement('input');
+    numInp.id = `detect-num-${i}`;
+    numInp.type = 'text';
+    numInp.placeholder = '+976…';
+    numInp.value = dev.number || '';
+    numInp.style.cssText = 'width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 8px;font-size:.8rem;outline:none';
+    numWrap.appendChild(numInp);
+
+    grid.appendChild(slotWrap);
+    grid.appendChild(numWrap);
+    row.appendChild(grid);
+    body.appendChild(row);
   });
 
-  // Update in-memory maps
-  data.devices.forEach((dev, i) => {
-    const name = PHONES[i];
-    if (!name) return;
-    if (dev.serial) DEVICES_MAP[name] = dev.serial;
-    if (dev.number) PHONE_NUMBERS[name] = dev.number;
+  // Apply button
+  const applyBtn = document.createElement('button');
+  applyBtn.className = 'btn btn-primary';
+  applyBtn.style.cssText = 'width:100%;margin-top:6px;padding:8px';
+  applyBtn.textContent = '✓ Apply Assignment';
+  applyBtn.addEventListener('click', () => applyDetect(data.devices));
+  body.appendChild(applyBtn);
+
+  document.getElementById('detect-modal').classList.add('open');
+}
+
+function applyDetect(devices) {
+  let assigned = 0;
+  devices.forEach((dev, i) => {
+    const slot   = document.getElementById(`detect-slot-${i}`)?.value;
+    const number = document.getElementById(`detect-num-${i}`)?.value.trim();
+    if (!slot) return;
+
+    // Update sidebar input fields
+    const sEl = document.getElementById('serial_' + slot);
+    const nEl = document.getElementById('number_' + slot);
+    if (sEl) sEl.value = dev.serial;
+    if (nEl && number) nEl.value = number;
+
+    // Update in-memory
+    DEVICES_MAP[slot]    = dev.serial;
+    if (number) PHONE_NUMBERS[slot] = number;
+    assigned++;
   });
 
-  const missing = data.devices.filter(d => !d.number).length;
-  if (missing > 0) {
-    toast(`Serials detected. ${missing} phone number(s) not readable — enter manually.`, '');
-  } else {
-    toast(`Detected ${data.devices.length} device(s) with phone numbers ✓`, 'success');
-  }
-
-  await refreshDevices();
+  closeDetectModal();
+  toast(`${assigned} device(s) assigned. Click 💾 Save to config.py to persist.`, 'success');
 }
 
 async function saveConfig() {
