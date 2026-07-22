@@ -8,6 +8,7 @@ import io
 import json
 import os
 import re
+import subprocess
 import sys
 import time
 import threading
@@ -458,6 +459,7 @@ HTML = r"""<!DOCTYPE html>
       <h2>Devices <span style="font-size:.6rem;color:var(--accent);cursor:pointer" onclick="refreshDevices()">↻ refresh</span></h2>
       <div id="device-cards"></div>
       <button class="save-config-btn" style="background:var(--surface2);color:var(--accent);border:1px solid var(--accent);margin-bottom:6px" onclick="autoDetect()">🔍 Auto Detect Devices</button>
+      <button class="save-config-btn" style="background:var(--surface2);color:#a78bfa;border:1px solid #a78bfa;margin-bottom:6px" onclick="openWirelessModal()">📡 Wireless Pair</button>
       <button class="save-config-btn" onclick="saveConfig()">💾 Save to config.py</button>
     </div>
   </aside>
@@ -537,6 +539,63 @@ HTML = r"""<!DOCTYPE html>
   </div>
 </div>
 
+<!-- Wireless Pair modal -->
+<div class="modal-backdrop" id="wireless-modal" onclick="if(event.target===this)closeWirelessModal()">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header">
+      <h2>📡 Wireless Pair</h2>
+      <button class="btn btn-ghost" style="padding:5px 12px;font-size:.78rem" onclick="closeWirelessModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:.78rem;color:var(--muted);margin-bottom:16px;line-height:1.6">
+        Phone дээр: <b>Settings → Developer options → Wireless debugging → Pair device with pairing code</b><br>
+        IP address, port болон 6 оронтой кодыг доор оруулна уу.
+      </div>
+
+      <!-- Step 1: Pair -->
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:12px">
+        <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.5px;color:#a78bfa;margin-bottom:10px;font-weight:700">Step 1 — Pair</div>
+        <div style="display:grid;grid-template-columns:1fr 120px;gap:8px;margin-bottom:8px">
+          <div>
+            <div style="font-size:.65rem;color:var(--muted);margin-bottom:3px">IP Address</div>
+            <input id="wp-ip" type="text" placeholder="192.168.1.100" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px;font-size:.8rem;outline:none">
+          </div>
+          <div>
+            <div style="font-size:.65rem;color:var(--muted);margin-bottom:3px">Pair Port</div>
+            <input id="wp-pair-port" type="text" placeholder="37425" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px;font-size:.8rem;outline:none">
+          </div>
+        </div>
+        <div style="margin-bottom:10px">
+          <div style="font-size:.65rem;color:var(--muted);margin-bottom:3px">Pairing Code (6 digits)</div>
+          <input id="wp-code" type="text" placeholder="123456" maxlength="6" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px;font-size:.8rem;outline:none;letter-spacing:3px">
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="doPair()">🔗 Pair</button>
+        <div id="wp-pair-result" style="margin-top:8px;font-size:.75rem;min-height:18px"></div>
+      </div>
+
+      <!-- Step 2: Connect -->
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px">
+        <div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.5px;color:#a78bfa;margin-bottom:10px;font-weight:700">Step 2 — Connect</div>
+        <div style="font-size:.7rem;color:var(--muted);margin-bottom:8px">
+          Pair хийсний дараа Wireless debugging дэлгэц дээрх <b>IP address &amp; Port</b>-ыг оруулна уу (pair port-оос өөр байна).
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 120px;gap:8px;margin-bottom:10px">
+          <div>
+            <div style="font-size:.65rem;color:var(--muted);margin-bottom:3px">IP Address</div>
+            <input id="wp-conn-ip" type="text" placeholder="192.168.1.100" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px;font-size:.8rem;outline:none">
+          </div>
+          <div>
+            <div style="font-size:.65rem;color:var(--muted);margin-bottom:3px">Connect Port</div>
+            <input id="wp-conn-port" type="text" placeholder="38123" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px;font-size:.8rem;outline:none">
+          </div>
+        </div>
+        <button class="btn btn-primary" style="width:100%;background:#7c3aed;border-color:#7c3aed" onclick="doConnect()">⚡ Connect</button>
+        <div id="wp-conn-result" style="margin-top:8px;font-size:.75rem;min-height:18px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Report modal -->
 <div class="modal-backdrop" id="report-modal" onclick="if(event.target===this)closeReport()">
   <div class="modal">
@@ -593,6 +652,54 @@ function buildDeviceCards(d) {
         <input class="device-input" id="number_${name}" value="${number}" placeholder="+976...">
       </div>`;
   });
+}
+
+function openWirelessModal() {
+  document.getElementById('wireless-modal').classList.add('open');
+}
+function closeWirelessModal() {
+  document.getElementById('wireless-modal').classList.remove('open');
+}
+
+async function doPair() {
+  const ip   = document.getElementById('wp-ip').value.trim();
+  const port = document.getElementById('wp-pair-port').value.trim();
+  const code = document.getElementById('wp-code').value.trim();
+  const res  = document.getElementById('wp-pair-result');
+  if (!ip || !port || !code) { res.style.color='#f87171'; res.textContent='IP, port болон кодыг бүгдийг оруулна уу.'; return; }
+  res.style.color='var(--muted)'; res.textContent='Холбогдож байна…';
+  const r = await fetch('/pair', { method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ip, port, code}) });
+  const d = await r.json();
+  if (d.ok) {
+    res.style.color='#4ade80';
+    res.textContent = '✓ ' + (d.output || 'Амжилттай pair хийлээ.');
+    // auto-fill connect IP
+    document.getElementById('wp-conn-ip').value = ip;
+  } else {
+    res.style.color='#f87171';
+    res.textContent = '✗ ' + (d.output || 'Pair амжилтгүй.');
+  }
+}
+
+async function doConnect() {
+  const ip   = document.getElementById('wp-conn-ip').value.trim();
+  const port = document.getElementById('wp-conn-port').value.trim();
+  const res  = document.getElementById('wp-conn-result');
+  if (!ip || !port) { res.style.color='#f87171'; res.textContent='IP болон connect port оруулна уу.'; return; }
+  res.style.color='var(--muted)'; res.textContent='Холбогдож байна…';
+  const r = await fetch('/connect', { method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ip, port}) });
+  const d = await r.json();
+  if (d.ok) {
+    res.style.color='#4ade80';
+    res.textContent = '✓ ' + (d.output || 'Амжилттай холбогдлоо.');
+    closeWirelessModal();
+    toast('Утас холбогдлоо — Auto Detect дарж slot-д оноох боломжтой.', 'success');
+  } else {
+    res.style.color='#f87171';
+    res.textContent = '✗ ' + (d.output || 'Холболт амжилтгүй.');
+  }
 }
 
 function closeDetectModal() {
@@ -1568,6 +1675,47 @@ def run_test():
         mimetype="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+@app.route("/pair", methods=["POST"])
+def wireless_pair():
+    """adb pair <ip>:<port> <code>"""
+    data = request.get_json()
+    ip   = data.get("ip", "").strip()
+    port = data.get("port", "").strip()
+    code = data.get("code", "").strip()
+    if not ip or not port or not code:
+        return jsonify({"ok": False, "output": "ip, port, code шаардлагатай."})
+    try:
+        result = subprocess.run(
+            ["adb", "pair", f"{ip}:{port}", code],
+            capture_output=True, text=True, timeout=20
+        )
+        output = (result.stdout + result.stderr).strip()
+        ok = "Successfully paired" in output or "already paired" in output.lower()
+        return jsonify({"ok": ok, "output": output})
+    except Exception as e:
+        return jsonify({"ok": False, "output": str(e)})
+
+
+@app.route("/connect", methods=["POST"])
+def wireless_connect():
+    """adb connect <ip>:<port>"""
+    data = request.get_json()
+    ip   = data.get("ip", "").strip()
+    port = data.get("port", "").strip()
+    if not ip or not port:
+        return jsonify({"ok": False, "output": "ip, port шаардлагатай."})
+    try:
+        result = subprocess.run(
+            ["adb", "connect", f"{ip}:{port}"],
+            capture_output=True, text=True, timeout=15
+        )
+        output = (result.stdout + result.stderr).strip()
+        ok = "connected" in output.lower()
+        return jsonify({"ok": ok, "output": output})
+    except Exception as e:
+        return jsonify({"ok": False, "output": str(e)})
 
 
 @app.route("/detect")
