@@ -22,6 +22,9 @@ SUPPORTED_ACTIONS = {
     "SET_CONFIG", "GET_CONFIG",
     "START_RECORD", "STOP_RECORD",
     "WAIT", "WAKE",
+    "AIRPLANE_MODE", "OPEN_BROWSER", "SPEEDTEST", "SET_APN", "DOWNLOAD_FILE",
+    "SET_VOLTE", "CHECK_WIFI_CALLING", "SET_WIFI_CALLING",
+    "CHECK_NETWORK",
 }
 
 
@@ -97,6 +100,19 @@ class TestRunner:
         # ── USSD ─────────────────────────────────────────────────────
         if action == "USSD":
             return adb.dial_ussd(serial, number_code)
+
+        # ── VoLTE / WiFi Calling ─────────────────────────────────────
+        if action == "SET_VOLTE":
+            return adb.set_volte(serial, value or "on")
+
+        if action == "CHECK_WIFI_CALLING":
+            return adb.check_wifi_calling(serial)
+
+        if action == "SET_WIFI_CALLING":
+            return adb.set_wifi_calling(serial, value or "on")
+
+        if action == "CHECK_NETWORK":
+            return adb.check_network(serial)
 
         # ── Device settings ──────────────────────────────────────────
         if action == "SET_CONFIG":

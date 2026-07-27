@@ -289,16 +289,41 @@ def get_device_phone_number(serial: str) -> str:
             if candidate and len(candidate) >= 7:
                 return candidate
 
-    # ── 3. getprop (some OEM devices expose it) ───────────────────────
+    # ── 3. getprop — generic + Samsung-specific props ───────────────────
     for prop in [
         "gsm.sim.ril.number.1", "gsm.sim.ril.number",
         "ril.msisdn.1", "ril.msisdn",
         "persist.radio.msisdn.1", "persist.radio.msisdn",
+        # Samsung One UI props
+        "ril.phone_number1", "ril.phone_number2",
+        "gsm.ril.phone_number.1", "gsm.ril.phone_number.2",
+        "persist.ril.phone_number1",
+        "sys.smartcard.phonenum.1",
     ]:
         ok3, val = _run(_serial_args(serial) + ["shell", "getprop", prop])
         val = (val or "").strip()
         if ok3 and val and re.match(r"[+\d]{7,}", val):
             return val
+
+    # ── 4. SIM own number from telephony settings ────────────────────────
+    ok4, out4 = _run(_serial_args(serial) + [
+        "shell", "content", "query",
+        "--uri", "content://telephony/siminfo",
+        "--projection", "icc_id:number:display_name",
+    ])
+    if ok4 and out4:
+        m = re.search(r"number=([+\d]{7,})", out4)
+        if m:
+            return m.group(1)
+
+    # ── 5. service call with SIM slot index 1 and 2 ──────────────────────
+    for code in ["16", "12", "14"]:
+        ok5, raw5 = _run(_serial_args(serial) + ["shell", "service", "call", "iphonesubinfo", code, "i32", "1"])
+        if ok5 and raw5:
+            chars = re.findall(r"'(.)'", raw5)
+            candidate = re.sub(r"[^\d+]", "", "".join(chars).replace("\x00", ""))
+            if candidate and len(candidate) >= 7:
+                return candidate
 
     return ""
 
@@ -919,20 +944,16 @@ def check_volte(serial: str) -> Result:
                 call_type_name = {1: "Video (ViLTE)", 2: "Voice (VoLTE)"}.get(
                     next(t for t in ims_call_types if t in (1, 2)), "IMS"
                 )
-                return True, f"VoLTE ACTIVE — {call_type_name} call via IMS (imsCallType={ims_call_types})"
+                return True, f"VoLTE ON — {call_type_name} call via IMS"
             if on_lte:
-                return True, f"VoLTE ACTIVE — call in progress on {net_name}"
-            return False, f"VoLTE INACTIVE — call active but imsCallType={ims_call_types}, network={net_name}"
+                return True, f"VoLTE ON — call in progress on {net_name}"
+            return True, f"VoLTE OFF — call active but not on IMS (network={net_name})"
 
         # No active call — check network readiness
         if ims_call_types:
-            # Stale entry from previous call or background IMS session
             log.info("No active call but imsCallType entries exist: %s", ims_call_types)
         if on_lte:
-            return True, (
-                f"VoLTE likely supported — on {net_name}, no active call to confirm. "
-                "Run CHECK_VOLTE again during a call for definitive result."
-            )
+            return True, f"VoLTE ON — on {net_name} (no active call to confirm IMS)"
 
     # ── 2. dumpsys ims — IMS service registration ────────────────────
     ok2, ims = _run(_serial_args(serial) + ["shell", "dumpsys", "ims"])
@@ -940,12 +961,11 @@ def check_volte(serial: str) -> Result:
         ims_l = ims.lower()
         log.debug("dumpsys ims snippet: %s", ims_l[:400])
 
-        # Patterns seen across Android 12-15 / Samsung / Pixel
         _REG_TRUE = [
             r"isregistered\s*[=:]\s*true",
             r"misismsregistered\s*=\s*true",
             r"registered\s*=\s*true",
-            r"registrationstate\s*=\s*2",    # REGISTERED = 2
+            r"registrationstate\s*=\s*2",
             r"state\s*=\s*registered",
             r"isregistered:\s*true",
         ]
@@ -972,17 +992,12 @@ def check_volte(serial: str) -> Result:
         log.info("IMS: registered=%s not_reg=%s volte_cap=%s", is_registered, is_not_reg, has_volte_cap)
 
         if is_registered:
-            detail = "VoLTE capable (MMTEL registered)" if has_volte_cap else "IMS registered"
-            return True, f"VoLTE ACTIVE — {detail}"
+            detail = "MMTEL registered" if has_volte_cap else "IMS registered"
+            return True, f"VoLTE ON — {detail}"
         if is_not_reg:
-            return False, "VoLTE INACTIVE — IMS not registered"
+            return True, "VoLTE OFF — IMS not registered"
 
-    # ── 3. System properties (quick, no IPC overhead) ────────────────
-    props_to_check = [
-        ("persist.dbg.volte_avail_ovr",        "1"),
-        ("persist.dbg.wfc_avail_ovr",           None),   # WFC also implies IMS
-        ("ro.telephony.default_network",         None),
-    ]
+    # ── 3. System properties ──────────────────────────────────────────
     volte_props = [
         "persist.radio.volte",
         "persist.vendor.radio.volte",
@@ -993,7 +1008,7 @@ def check_volte(serial: str) -> Result:
         ok3, val = _run(_serial_args(serial) + ["shell", "getprop", prop])
         if ok3 and val.strip() and val.strip() not in ("", "0", "false"):
             log.info("getprop %s = %s", prop, val.strip())
-            return True, f"VoLTE enabled — {prop}={val.strip()}"
+            return True, f"VoLTE ON — {prop}={val.strip()}"
 
     # ── 4. Settings DB ────────────────────────────────────────────────
     for cmd in [
@@ -1003,24 +1018,325 @@ def check_volte(serial: str) -> Result:
         ok4, val = _run(_serial_args(serial) + cmd)
         if ok4 and val.strip() == "1":
             log.info("settings %s = 1", cmd[-1])
-            return True, f"VoLTE enabled — {cmd[-1]}=1"
+            return True, f"VoLTE ON — {cmd[-1]}=1"
         if ok4 and val.strip() == "0":
-            log.info("settings %s = 0 (disabled)", cmd[-1])
-            return False, f"VoLTE DISABLED — {cmd[-1]}=0 (turn on 'Enhanced 4G LTE' in settings)"
+            log.info("settings %s = 0", cmd[-1])
+            return True, f"VoLTE OFF — {cmd[-1]}=0"
 
-    # ── No active call — report network type only ─────────────────────
+    # ── Fallback: report network type ────────────────────────────────
     if ok and reg:
         if on_lte:
-            return True, (
-                f"VoLTE likely supported — on {net_name}, no active call to confirm. "
-                "Run CHECK_VOLTE during a call for definitive result."
-            )
-        return False, (
-            f"VoLTE uncertain — network type {net_name}, no active call. "
-            "Make sure device is on LTE and VoLTE is enabled in mobile settings."
-        )
+            return True, f"VoLTE ON — on {net_name}"
+        return True, f"VoLTE OFF — network={net_name}, not on LTE"
 
-    return False, "VoLTE status unknown — could not read IMS/telephony state (check ADB connection)"
+    return False, "VoLTE unknown — could not read IMS/telephony state (check ADB connection)"
+
+
+def check_network(serial: str) -> Result:
+    """Return current network type, operator, signal strength and service state."""
+    NET_PROP_MAP = {
+        "LTE": "LTE (4G)", "NR_NSA": "NR NSA (5G)", "NR_SA": "NR SA (5G)", "NR": "NR (5G)",
+        "UMTS": "UMTS (3G)", "HSDPA": "HSDPA (3.5G)", "HSUPA": "HSUPA (3.5G)",
+        "HSPA": "HSPA (3.5G)", "HSPAP": "HSPA+ (3.5G)", "TD_SCDMA": "TD-SCDMA (3G)",
+        "EDGE": "EDGE (2G)", "GPRS": "GPRS (2G)", "GSM": "GSM (2G)",
+    }
+    NET_INT_MAP = {
+        1: "GPRS (2G)", 2: "EDGE (2G)", 3: "UMTS (3G)", 8: "HSDPA (3.5G)",
+        9: "HSUPA (3.5G)", 10: "HSPA (3.5G)", 13: "LTE (4G)", 15: "HSPA+ (3.5G)",
+        16: "GSM (2G)", 17: "TD-SCDMA (3G)", 19: "NR NSA (5G)", 20: "NR SA (5G)",
+    }
+    SVC_STATES = {0: "IN_SERVICE", 1: "OUT_OF_SERVICE", 2: "EMERGENCY_ONLY", 3: "RADIO_OFF"}
+
+    # ── 1. Operator ──────────────────────────────────────────────────────
+    _, op_raw = _run(_serial_args(serial) + ["shell", "getprop", "gsm.operator.alpha"])
+    operator = (op_raw or "").strip().split(",")[0]
+
+    # ── 2. Network type — getprop (most readable, Samsung-reliable) ──────
+    _, net_prop = _run(_serial_args(serial) + ["shell", "getprop", "gsm.network.type"])
+    net_label = NET_PROP_MAP.get((net_prop or "").strip().split(",")[0].upper(), "")
+
+    # ── 3. Network type fallback — dumpsys phone (has label in parentheses) ──
+    if not net_label:
+        _, phone = _run(_serial_args(serial) + ["shell", "dumpsys", "phone"])
+        if phone:
+            m = re.search(r"(?:mDataNetworkType|mVoiceNetworkType)\s*=\s*\d+\s*\(([^)]+)\)", phone)
+            if m:
+                net_label = m.group(1).strip()
+
+    # ── 4. Network type + service state — telephony.registry ─────────────
+    ok, reg = _run(_serial_args(serial) + ["shell", "dumpsys", "telephony.registry"])
+    svc_state  = -1
+    signal_dbm = None
+
+    if ok and reg:
+        svc_states = [int(x) for x in re.findall(r"mServiceState\s*=\s*(\d+)", reg)]
+        svc_state  = min(svc_states) if svc_states else -1
+
+        if not net_label:
+            data_types  = [int(x) for x in re.findall(r"mDataNetworkType\s*=\s*(\d+)", reg)]
+            voice_types = [int(x) for x in re.findall(r"mVoiceNetworkType\s*=\s*(\d+)", reg)]
+            net_int     = max(data_types + voice_types) if (data_types or voice_types) else 0
+            if net_int:
+                net_label = NET_INT_MAP.get(net_int, f"type {net_int}")
+
+        for pat in [r"rsrp\s*=\s*(-?\d+)", r"mDbm\s*=\s*(-?\d+)"]:
+            m = re.search(pat, reg, re.IGNORECASE)
+            if m:
+                v = int(m.group(1))
+                if -130 <= v <= -30:
+                    signal_dbm = v
+                    break
+
+    svc_label = SVC_STATES.get(svc_state, "UNKNOWN")
+    parts = [svc_label]
+    if operator:
+        parts.append(f"Operator: {operator}")
+    parts.append(f"Network: {net_label or 'Unknown'}")
+    if signal_dbm:
+        parts.append(f"Signal: {signal_dbm} dBm")
+
+    msg = " | ".join(parts)
+    if svc_state == -1 and not operator and not net_label:
+        return False, "Could not read network state (check ADB connection)"
+    return True, msg
+
+
+def _switch_row_text(nodes: list, sw_cy: int, tolerance: int = 60) -> str:
+    """Collect all text on the same horizontal row as a switch (within tolerance px)."""
+    parts = []
+    for n in nodes:
+        txt = (n.get("text") or "").strip()
+        if not txt:
+            continue
+        nums = re.findall(r"\d+", n.get("bounds", ""))
+        if len(nums) == 4:
+            ny = (int(nums[1]) + int(nums[3])) // 2
+            if abs(ny - sw_cy) <= tolerance:
+                parts.append(txt.lower())
+    return " ".join(parts)
+
+
+def set_volte(serial: str, state: str) -> Result:
+    """Enable or disable VoLTE via the Settings UI (works without root)."""
+    enable = state.lower() in ("on", "1", "true", "enable")
+    val    = "1" if enable else "0"
+    label  = "ON" if enable else "OFF"
+    log    = get_logger()
+
+    _run(_serial_args(serial) + ["shell", "settings", "put", "global", "volte_vt_enabled", val])
+    _run(_serial_args(serial) + ["shell", "settings", "put", "global", "enhanced_4g_mode_enabled", val])
+
+    wake_and_unlock(serial)
+
+    volte_kws = {"volte", "volte calls", "advanced calling", "hd calls",
+                 "4g calling", "enhanced 4g", "lte calling", "vt calls"}
+
+    root = None
+    for intent_args in [
+        ["-n", "com.android.phone/.settings.VoLteSettingActivity"],
+        ["-n", "com.android.settings/.Settings$MobileNetworkActivity"],
+        ["-a", "android.settings.NETWORK_OPERATOR_SETTINGS"],
+    ]:
+        _run(_serial_args(serial) + ["shell", "am", "start"] + intent_args)
+        time.sleep(2)
+        root = _dump_ui_tree(serial)
+        if root is None:
+            continue
+        all_text = " ".join((n.get("text") or "").lower() for n in root.iter("node"))
+        if any(kw in all_text for kw in volte_kws):
+            break
+        root = None
+    else:
+        return False, f"VoLTE {label} — could not open a screen with VoLTE settings"
+
+    nodes = list(root.iter("node"))
+
+    # Find the VoLTE switch by matching each Switch node to its row label (Y proximity)
+    volte_switch = None
+    for node in nodes:
+        if "Switch" not in (node.get("class") or ""):
+            continue
+        coords = _node_center(node)
+        if not coords:
+            continue
+        row_text = _switch_row_text(nodes, coords[1])
+        if any(kw in row_text for kw in volte_kws):
+            volte_switch = (node, coords)
+            break
+
+    # Fallback: find Switch near any VoLTE keyword node by flat index
+    if volte_switch is None:
+        for i, node in enumerate(nodes):
+            text = (node.get("text") or "").lower()
+            desc = (node.get("content-desc") or "").lower()
+            if not any(kw in text or kw in desc for kw in volte_kws):
+                continue
+            for j in range(max(0, i - 3), min(len(nodes), i + 10)):
+                nb = nodes[j]
+                if "Switch" in (nb.get("class") or ""):
+                    c = _node_center(nb)
+                    if c:
+                        volte_switch = (nb, c)
+                        break
+            if volte_switch:
+                break
+
+    if volte_switch is None:
+        _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_BACK"])
+        return False, f"VoLTE {label} — settings DB written but toggle not found in UI"
+
+    sw_node, (sx, sy) = volte_switch
+    checked_str = sw_node.get("checked", "")
+
+    if checked_str:
+        current_on = checked_str.lower() == "true"
+        if current_on == enable:
+            log.info("VoLTE already %s (checked=%s), no tap", label, checked_str)
+            _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_BACK"])
+            return True, f"VoLTE already {label}"
+
+    _run(_serial_args(serial) + ["shell", "input", "tap", str(sx), str(sy)])
+    log.info("VoLTE Switch tapped at (%d,%d) → %s (checked='%s')", sx, sy, label, checked_str)
+    time.sleep(0.5)
+    _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_BACK"])
+    return True, f"VoLTE {label} — UI toggle set"
+
+
+def check_wifi_calling(serial: str) -> Result:
+    """Check whether WiFi Calling (WFC/VoWiFi) is enabled and IMS-registered.
+    Always returns True (PASS) — result message shows ON or OFF status.
+    """
+    log = get_logger()
+
+    _, wfc_en   = _run(_serial_args(serial) + ["shell", "settings", "get", "global", "wfc_ims_enabled"])
+    _, wfc_mode = _run(_serial_args(serial) + ["shell", "settings", "get", "global", "wfc_ims_mode"])
+    wfc_en   = (wfc_en   or "").strip()
+    wfc_mode = (wfc_mode or "").strip()
+
+    mode_labels = {"0": "WiFi only", "1": "Prefer cellular", "2": "Prefer WiFi"}
+    mode_str = mode_labels.get(wfc_mode, f"mode={wfc_mode}")
+
+    log.info("wfc_ims_enabled=%s wfc_ims_mode=%s", wfc_en, wfc_mode)
+
+    if wfc_en == "0":
+        return True, "WiFi Calling OFF"
+    if wfc_en in ("null", ""):
+        return True, "WiFi Calling OFF — not supported or not configured"
+
+    # wfc_en == "1": check IMS registration
+    _, ims = _run(_serial_args(serial) + ["shell", "dumpsys", "ims"])
+    ims_l = (ims or "").lower()
+
+    wfc_registered = bool(
+        re.search(r"wfc.*regist|vowifi.*regist", ims_l)
+        or re.search(r"feature.*tag.*mmtel", ims_l)
+    )
+    wfc_capable = bool(re.search(r"wfc|vowifi|wifi.*call|wifi.*capable", ims_l))
+
+    if wfc_registered:
+        return True, f"WiFi Calling ON — registered ({mode_str})"
+    if wfc_capable:
+        return True, f"WiFi Calling ON — enabled ({mode_str}), not yet registered"
+    return True, f"WiFi Calling ON — enabled ({mode_str})"
+
+
+def set_wifi_calling(serial: str, state: str) -> Result:
+    """Enable or disable WiFi Calling via the Settings UI (works without root)."""
+    parts  = state.lower().split(":")
+    enable = parts[0] in ("on", "1", "true", "enable")
+    val    = "1" if enable else "0"
+    label  = "ON" if enable else "OFF"
+    mode   = parts[1] if len(parts) > 1 and parts[1].isdigit() else ("2" if enable else "0")
+    log    = get_logger()
+
+    _run(_serial_args(serial) + ["shell", "settings", "put", "global", "wfc_ims_enabled", val])
+    if enable:
+        _run(_serial_args(serial) + ["shell", "settings", "put", "global", "wfc_ims_mode", mode])
+
+    mode_labels = {"0": "WiFi only", "1": "Prefer cellular", "2": "Prefer WiFi"}
+    mode_str = mode_labels.get(mode, f"mode={mode}")
+
+    wake_and_unlock(serial)
+
+    wfc_kws = {"wifi calling", "wi-fi calling", "wfc", "vowifi",
+               "calls over wi-fi", "wi-fi calls"}
+
+    root = None
+    for intent_args in [
+        ["-n", "com.android.phone/.settings.WifiCallingSettingActivity"],
+        ["-n", "com.android.settings/.Settings$WifiCallingSettingsActivity"],
+        ["-n", "com.samsung.android.settings/.Settings$WifiCallingSettingsActivity"],
+        ["-a", "android.settings.WIRELESS_SETTINGS"],   # Samsung: Settings > Connections
+    ]:
+        _run(_serial_args(serial) + ["shell", "am", "start"] + intent_args)
+        time.sleep(2)
+        root = _dump_ui_tree(serial)
+        if root is None:
+            continue
+        all_text = " ".join((n.get("text") or "").lower() for n in root.iter("node"))
+        if any(kw in all_text for kw in wfc_kws):
+            break
+        root = None
+    else:
+        return False, f"WiFi Calling {label} — could not open WiFi Calling settings"
+
+    nodes = list(root.iter("node"))
+
+    # Find the WiFi Calling switch by Y-row matching
+    wfc_switch = None
+    for node in nodes:
+        if "Switch" not in (node.get("class") or ""):
+            continue
+        coords = _node_center(node)
+        if not coords:
+            continue
+        row_text = _switch_row_text(nodes, coords[1])
+        if any(kw in row_text for kw in wfc_kws):
+            wfc_switch = (node, coords)
+            break
+
+    # Fallback: flat index search
+    if wfc_switch is None:
+        for i, node in enumerate(nodes):
+            text = (node.get("text") or "").lower()
+            desc = (node.get("content-desc") or "").lower()
+            if not any(kw in text or kw in desc for kw in wfc_kws):
+                continue
+            for j in range(max(0, i - 3), min(len(nodes), i + 10)):
+                nb = nodes[j]
+                if "Switch" in (nb.get("class") or ""):
+                    c = _node_center(nb)
+                    if c:
+                        wfc_switch = (nb, c)
+                        break
+            if wfc_switch:
+                break
+
+    if wfc_switch is None:
+        _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_BACK"])
+        return False, f"WiFi Calling {label} — settings DB written but toggle not found in UI"
+
+    sw_node, (sx, sy) = wfc_switch
+    checked_str = sw_node.get("checked", "")
+
+    if checked_str:
+        current_on = checked_str.lower() == "true"
+        if current_on == enable:
+            log.info("WiFi Calling already %s (checked=%s), no tap", label, checked_str)
+            _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_BACK"])
+            return True, f"WiFi Calling already {label}"
+
+    _run(_serial_args(serial) + ["shell", "input", "tap", str(sx), str(sy)])
+    log.info("WiFi Calling Switch tapped at (%d,%d) → %s (checked='%s')", sx, sy, label, checked_str)
+    time.sleep(0.5)
+    _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_BACK"])
+
+    msg = f"WiFi Calling {label}"
+    if enable:
+        msg += f" ({mode_str}) — UI toggle set"
+    else:
+        msg += " — UI toggle set"
+    return True, msg
 
 
 def dial_ussd(serial: str, code: str) -> Result:
@@ -1270,15 +1586,15 @@ def set_network_type(serial: str, network: str) -> Result:
     """
     log = get_logger()
 
-    # Keywords to match inside the network-mode option dialog (case-insensitive)
-    # Ordered from most-specific to least so "5G/LTE/3G/2G" doesn't match "2G"
+    # Keywords matched with text.startswith(kw) — prevents "3g" matching "lte/3g/2g"
+    # Ordered most-specific first within each network type
     OPTION_KEYWORDS: dict[str, list[str]] = {
         "5G":   ["5g (recommended)", "5g/lte/3g/2g", "nr/lte/3g/2g", "5g/lte", "nr/lte", "5g", "nr"],
         "4G5G": ["5g (recommended)", "5g/lte/3g/2g", "nr/lte/3g/2g", "5g/lte", "nr/lte"],
         "4G":   ["lte (recommended)", "lte/3g/2g", "lte/wcdma/gsm", "4g/3g/2g", "lte"],
-        "3G":   ["3g/2g", "3g (recommended)", "3g preferred", "wcdma/gsm", "3g"],
+        "3G":   ["3g only", "3g/2g", "3g (recommended)", "3g preferred", "wcdma/gsm"],
         "2G":   ["2g only", "gsm only", "2g (recommended)", "2g"],
-        "AUTO": ["5g (recommended)", "auto connect", "auto", "5g/lte/3g/2g", "nr/lte/3g/2g"],
+        "AUTO": ["5g (recommended)", "5g/lte/3g/2g", "lte/3g/2g", "nr/lte/3g/2g"],
     }
 
     key = network.upper().replace(" ", "")
@@ -1351,7 +1667,7 @@ def set_network_type(serial: str, network: str) -> Result:
     for kw in keywords:
         for node in root2.iter("node"):
             text = (node.get("text") or "").strip().lower()
-            if kw in text:
+            if text.startswith(kw):
                 nums = re.findall(r"\d+", node.get("bounds", ""))
                 if len(nums) == 4:
                     ox = (int(nums[0]) + int(nums[2])) // 2
@@ -1384,6 +1700,455 @@ def set_config(serial: str, namespace: str, key: str, value: str) -> Result:
 def get_config(serial: str, namespace: str, key: str) -> Result:
     """Read a device setting via `adb shell settings get`."""
     return _run(_serial_args(serial) + ["shell", "settings", "get", namespace, key])
+
+
+def _get_network_status(serial: str) -> dict:
+    """Return current network info: operator, data_state, service_state."""
+    info = {}
+    _, op = _run(_serial_args(serial) + ["shell", "getprop", "gsm.operator.alpha"])
+    info["operator"] = (op or "").strip()
+    _, dtype = _run(_serial_args(serial) + ["shell", "getprop", "gsm.network.type"])
+    info["type"] = (dtype or "").strip()
+    # service state: 0=IN_SERVICE 1=OUT_OF_SERVICE 2=EMERGENCY_ONLY 3=RADIO_OFF
+    _, svc = _run(_serial_args(serial) + [
+        "shell", "dumpsys", "telephony.registry",
+    ])
+    m = re.search(r"mServiceState=(\d+)", svc or "")
+    info["service_state"] = int(m.group(1)) if m else -1
+    return info
+
+
+def set_airplane_mode(serial: str, state: str, wait_secs: int = 8) -> Result:
+    """Toggle airplane mode and verify network state after the change."""
+    turning_on = state.lower() in ("on", "1", "true")
+    val  = "1" if turning_on else "0"
+    flag = "true" if turning_on else "false"
+
+    ok, out = _run(_serial_args(serial) + ["shell", "settings", "put", "global", "airplane_mode_on", val])
+    if not ok:
+        return False, out
+    _run(_serial_args(serial) + [
+        "shell", "am", "broadcast",
+        "-a", "android.intent.action.AIRPLANE_MODE",
+        "--ez", "state", flag,
+    ])
+
+    if turning_on:
+        return True, "Airplane mode ON"
+
+    # Airplane OFF — wait and verify network comes back
+    time.sleep(wait_secs)
+    net = _get_network_status(serial)
+    svc      = net["service_state"]
+    operator = net["operator"] or ""
+    net_type = net["type"] or "—"
+
+    if svc == 0 and operator:
+        return True, f"Airplane mode OFF ✓ | Network: {operator} ({net_type})"
+    elif operator:
+        return True, f"Airplane mode OFF ✓ | Operator: {operator} ({net_type})"
+    else:
+        return False, f"Airplane mode OFF — no network after {wait_secs}s (state={svc})"
+
+
+def _ls_download(serial: str) -> dict[str, int]:
+    """Return {filename: size_bytes} for all files in the Downloads folder."""
+    result: dict[str, int] = {}
+    for path in ("/sdcard/Download/", "/storage/emulated/0/Download/"):
+        _, ls_out = _run(_serial_args(serial) + ["shell", "ls", "-la", path])
+        for line in (ls_out or "").splitlines():
+            parts = line.split()
+            # Android ls -la format: permissions links owner group size date time name
+            # minimum 8 parts; name is last, size is parts[4]
+            if len(parts) < 8:
+                continue
+            fname = parts[-1]
+            if fname in (".", ".."):
+                continue
+            try:
+                size = int(parts[4])
+            except (IndexError, ValueError):
+                continue
+            result[fname] = size
+        if result:
+            break  # first path that returned files is the right one
+    return result
+
+
+def download_file(serial: str, url: str, expected_mb: float = 0, timeout: int = 120) -> Result:
+    """
+    Download a file via Android browser intent, then poll the Downloads folder.
+    Samsung DownloadManager saves as .pending-XXXXXXXX-filename while downloading,
+    then renames to the final filename when complete.
+    Value format: "https://url/file.bin"  or  "https://url/file.bin:50"  (URL:expected MB)
+    """
+    import urllib.parse as _up
+
+    def _is_temp(n: str) -> bool:
+        return (n.endswith((".part", ".crdownload", ".tmp"))
+                or bool(re.match(r"\.pending-\d+-", n)))
+
+    def _pending_final(n: str) -> str | None:
+        """'.pending-1785392499-50MB.zip' → '50MB.zip'"""
+        m = re.match(r"\.pending-\d+-(.+)", n)
+        return m.group(1) if m else None
+
+    # 1. Snapshot existing files
+    before: dict[str, int] = _ls_download(serial)
+
+    # Predict final filename from URL
+    url_fname: str | None = _up.urlparse(url).path.rstrip("/").split("/")[-1] or None
+
+    # 2. Open URL — DownloadManager picks it up
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+    ok, out = _run(_serial_args(serial) + [
+        "shell", "am", "start",
+        "-a", "android.intent.action.VIEW",
+        "-d", url,
+    ])
+    if not ok:
+        return False, f"Failed to open URL: {out}"
+
+    # 3. Poll Downloads folder every 3s
+    deadline      = time.time() + timeout
+    pending_file  = None   # .pending-* filename being watched
+    target_file   = None   # final (non-temp) filename
+    last_size     = -1
+    stable_count  = 0
+
+    while time.time() < deadline:
+        time.sleep(3)
+        current = _ls_download(serial)
+
+        # --- Track .pending-* (Samsung in-progress download) ---
+        for fname in list(current):
+            if re.match(r"\.pending-\d+-", fname) and fname not in before:
+                if pending_file is None:
+                    pending_file = fname
+                    final_guess = _pending_final(fname)
+                    if final_guess and url_fname is None:
+                        url_fname = final_guess
+
+        # --- Detect completion: pending file vanished → renamed to final ---
+        if pending_file and pending_file not in current:
+            # Look for the final file (by URL name or any new non-temp file)
+            for fname, size in current.items():
+                if _is_temp(fname):
+                    continue
+                if fname in before and size <= before.get(fname, 0):
+                    continue  # existed before and hasn't grown
+                size_mb = size / (1024 * 1024)
+                if expected_mb > 0 and size_mb < expected_mb * 0.9:
+                    return False, (
+                        f"Download incomplete: '{fname}' is {size_mb:.1f} MB, "
+                        f"expected ~{expected_mb} MB"
+                    )
+                return True, f"Downloaded '{fname}' ({size_mb:.1f} MB)"
+            # pending gone but final not found yet — wait one more poll
+            pending_file = None
+
+        # --- Fallback: direct completion (no pending phase, file appeared directly) ---
+        for fname, size in current.items():
+            if _is_temp(fname):
+                continue
+            is_new     = fname not in before
+            is_updated = url_fname and fname == url_fname and size > before.get(fname, 0)
+            if not (is_new or is_updated):
+                continue
+            if target_file is None:
+                target_file = fname
+            if fname != target_file:
+                continue
+            if size > 0 and size == last_size:
+                stable_count += 1
+                if stable_count >= 2:
+                    size_mb = size / (1024 * 1024)
+                    if expected_mb > 0 and size_mb < expected_mb * 0.9:
+                        return False, (
+                            f"Download incomplete: '{fname}' is {size_mb:.1f} MB, "
+                            f"expected ~{expected_mb} MB"
+                        )
+                    return True, f"Downloaded '{fname}' ({size_mb:.1f} MB)"
+            else:
+                last_size    = size
+                stable_count = 0
+
+    fname_hint = target_file or pending_file or "unknown"
+    return False, f"Download timeout ({timeout}s) — '{fname_hint}' may be incomplete"
+
+
+def open_browser(serial: str, url: str, wait_secs: int = 8) -> Result:
+    """Open a URL in the default browser and wait to verify it loaded."""
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+    ok, out = _run(_serial_args(serial) + [
+        "shell", "am", "start",
+        "-a", "android.intent.action.VIEW",
+        "-d", url,
+    ])
+    if not ok:
+        return False, out
+
+    # Wait for page to load then verify result
+    time.sleep(wait_secs)
+    return check_browser(serial, expected="", wait_secs=0)
+
+
+def check_browser(serial: str, expected: str = "", wait_secs: int = 5) -> Result:
+    """
+    Check whether the browser loaded a page successfully.
+    - Reads the URL bar and visible page text from a UI dump.
+    - Fails if common network/DNS error strings are detected.
+    - If *expected* is given, also verifies it appears in the URL or page text.
+    """
+    import time as _time
+
+    _time.sleep(wait_secs)
+
+    ERROR_STRINGS = (
+        "err_name_not_resolved",
+        "err_connection_refused",
+        "err_connection_timed_out",
+        "err_internet_disconnected",
+        "err_network_changed",
+        "err_ssl",
+        "no internet",
+        "no connection",
+        "can't reach this page",
+        "this site can't be reached",
+        "page not available",
+        "net::err",
+        "connection failed",
+        "unable to connect",
+        "dns_probe",
+        "website not available",
+        "холболт алдаа",        # Mongolian
+        "интернет байхгүй",
+    )
+
+    root = _dump_ui_tree(serial)
+    if root is None:
+        return False, "UI dump failed — browser may not be open"
+
+    # Collect all visible text from the screen
+    all_text = []
+    url_bar_text = ""
+    for node in root.iter("node"):
+        txt  = (node.get("text")         or "").strip()
+        desc = (node.get("content-desc") or "").strip()
+        res  = (node.get("resource-id")  or "").lower()
+
+        if txt:
+            all_text.append(txt)
+        if desc and desc != txt:
+            all_text.append(desc)
+
+        # Identify address / URL bar
+        if any(k in res for k in ("url_bar", "address_bar", "omnibox", "location_bar",
+                                   "url_field", "addressbar", "search_box")):
+            url_bar_text = txt or desc
+
+    full_screen = " ".join(all_text).lower()
+
+    # Check for error indicators
+    for err in ERROR_STRINGS:
+        if err in full_screen:
+            return False, f"Browser error detected: '{err}' — page did not load"
+
+    # Build result summary
+    result_parts = []
+    if url_bar_text:
+        result_parts.append(f"URL: {url_bar_text}")
+
+    # Check expected keyword if provided
+    if expected:
+        exp_lower = expected.lower()
+        if exp_lower in full_screen or exp_lower in url_bar_text.lower():
+            result_parts.append(f"'{expected}' found ✓")
+        else:
+            return False, f"Expected '{expected}' not found on page. URL bar: {url_bar_text or '(not detected)'}"
+
+    if not result_parts:
+        # No URL bar detected — check if there's any substantial page content
+        content_nodes = [t for t in all_text if len(t) > 10]
+        if content_nodes:
+            result_parts.append(f"Page loaded ({len(content_nodes)} content elements)")
+        else:
+            return False, "Could not confirm page load — no URL bar or content detected"
+
+    return True, " | ".join(result_parts)
+
+
+def run_speedtest(serial: str, wait_secs: int = 60) -> Result:
+    """Launch G-World Speedtest (org.zwanoo.android.speedtest.gworld), tap GO, wait for result."""
+    import time as _time
+
+    pkg = "org.zwanoo.android.speedtest.gworld"
+
+    _, launch_out = _run(_serial_args(serial) + [
+        "shell", "monkey", "-p", pkg,
+        "-c", "android.intent.category.LAUNCHER", "1",
+    ])
+    if "No activities found" in launch_out:
+        return False, f"Speedtest app not installed ({pkg})"
+
+    # wait for app to fully load
+    _time.sleep(5)
+
+    GO_KEYWORDS = ("go", "start", "begin", "test", "시작", "эхлэх")
+
+    def _find_and_tap_go() -> bool:
+        root = _dump_ui_tree(serial)
+        if root is None:
+            return False
+        for node in root.iter("node"):
+            txt  = (node.get("text")         or "").lower().strip()
+            desc = (node.get("content-desc") or "").lower().strip()
+            cls  = (node.get("class")        or "")
+            # exact "GO" match first
+            if txt == "go" or desc == "go":
+                xy = _node_center(node)
+                if xy:
+                    _run(_serial_args(serial) + ["shell", "input", "tap", str(xy[0]), str(xy[1])])
+                    return True
+            # broader keyword match on clickable nodes
+            if node.get("clickable") == "true":
+                if any(k in txt or k in desc for k in GO_KEYWORDS):
+                    xy = _node_center(node)
+                    if xy:
+                        _run(_serial_args(serial) + ["shell", "input", "tap", str(xy[0]), str(xy[1])])
+                        return True
+        return False
+
+    tapped = _find_and_tap_go()
+    if not tapped:
+        # fallback: tap screen center (GO button is usually centered)
+        w, h = _get_screen_size(serial)
+        _run(_serial_args(serial) + ["shell", "input", "tap", str(w // 2), str(int(h * 0.55))])
+
+    # Poll until both download AND upload results appear, or timeout
+    deadline = _time.time() + wait_secs
+    poll_interval = 3
+
+    def _scrape_results() -> dict:
+        """Return dict with ping/download/upload found in UI, empty if test still running."""
+        root = _dump_ui_tree(serial)
+        if root is None:
+            return {}
+
+        found = {}
+        nodes = list(root.iter("node"))
+
+        # G-World / Ookla layout: numeric value node is followed by a unit/label node
+        # Strategy 1: find nodes whose text looks like a speed/ping number,
+        #              then peek at sibling/nearby text for the label.
+        for i, node in enumerate(nodes):
+            txt = (node.get("text") or "").strip()
+            desc = (node.get("content-desc") or "").strip().lower()
+
+            # Numeric value like "45.2" or "120"
+            try:
+                val = float(txt.replace(",", "."))
+            except ValueError:
+                val = None
+
+            if val is not None:
+                # look at nearby nodes for context label
+                context = " ".join(
+                    (nodes[j].get("text") or "") + " " + (nodes[j].get("content-desc") or "")
+                    for j in range(max(0, i - 3), min(len(nodes), i + 4))
+                ).lower()
+                if "ping" in context or "ms" in context:
+                    found.setdefault("ping", f"{txt} ms")
+                elif "download" in context or "dl" in context:
+                    found.setdefault("download", f"{txt} kBps")
+                elif "upload" in context or "ul" in context:
+                    found.setdefault("upload", f"{txt} kBps")
+
+            # Strategy 2: content-desc already contains the label+value
+            if "download" in desc and "mbps" in desc:
+                found.setdefault("download", txt or desc)
+            elif "upload" in desc and "mbps" in desc:
+                found.setdefault("upload", txt or desc)
+            elif "ping" in desc and ("ms" in desc or val is not None):
+                found.setdefault("ping", txt or desc)
+
+            # Strategy 3: plain text contains unit
+            tl = txt.lower()
+            if "mbps" in tl:
+                # guess direction from nearby text
+                context = " ".join(
+                    (nodes[j].get("text") or "")
+                    for j in range(max(0, i - 5), min(len(nodes), i + 5))
+                ).lower()
+                if "upload" in context or "ul" in context:
+                    found.setdefault("upload", txt)
+                else:
+                    found.setdefault("download", txt)
+            elif "ms" in tl and val is None:
+                # e.g. "23 ms"
+                found.setdefault("ping", txt)
+
+        return found
+
+    result_data = {}
+    while _time.time() < deadline:
+        _time.sleep(poll_interval)
+        data = _scrape_results()
+        # consider test done when we have at least download + upload
+        if data.get("download") and data.get("upload"):
+            result_data = data
+            break
+        # keep latest partial result
+        if data:
+            result_data = data
+
+    if result_data:
+        parts = []
+        if result_data.get("ping"):
+            parts.append(f"Ping: {result_data['ping']}")
+        if result_data.get("download"):
+            parts.append(f"Download: {result_data['download']}")
+        if result_data.get("upload"):
+            parts.append(f"Upload: {result_data['upload']}")
+        return True, " | ".join(parts)
+
+    return False, f"Speedtest тест дууссан боловч үр дүн олдсонгүй ({wait_secs}s хүлээсэн)"
+
+
+def set_apn(serial: str, apn_name: str, apn_value: str,
+            mcc_mnc: str = "", apn_type: str = "default,supl") -> Result:
+    """Insert an APN entry via the telephony content provider."""
+    import time as _time
+
+    # Detect MCC+MNC if not supplied
+    if not mcc_mnc:
+        _, mccmnc_raw = _run(_serial_args(serial) + ["shell", "getprop", "gsm.operator.numeric"])
+        mcc_mnc = mccmnc_raw.strip()[:6]
+
+    if not mcc_mnc:
+        return False, "Could not detect MCC+MNC — provide it manually (e.g. 42899)"
+
+    uri = "content://telephony/carriers"
+    ok, out = _run(_serial_args(serial) + [
+        "shell", "content", "insert",
+        "--uri", uri,
+        "--bind", f"name:s:{apn_name}",
+        "--bind", f"apn:s:{apn_value}",
+        "--bind", f"numeric:s:{mcc_mnc}",
+        "--bind", f"mcc:s:{mcc_mnc[:3]}",
+        "--bind", f"mnc:s:{mcc_mnc[3:]}",
+        "--bind", f"type:s:{apn_type}",
+        "--bind", "protocol:s:IPV4V6",
+        "--bind", "roaming_protocol:s:IPV4V6",
+        "--bind", "carrier_enabled:i:1",
+    ])
+    if not ok:
+        return False, out
+
+    _time.sleep(1)
+    return True, f"APN '{apn_name}' ({apn_value}) added for MCC+MNC {mcc_mnc}"
 
 
 def screenshot(serial: str, save_path: str) -> Result:

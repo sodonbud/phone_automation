@@ -27,17 +27,20 @@ def _load_config():
         return {
             "PHONE_NUMBERS": dict(getattr(_cfg, "PHONE_NUMBERS", {})),
             "DEVICES": dict(getattr(_cfg, "DEVICES", {})),
+            "ADB_PATH": getattr(_cfg, "ADB_PATH", "adb"),
         }
     except ImportError:
         return {
             "PHONE_NUMBERS": {"Phone1": "+97699001111", "Phone2": "+97699002222"},
             "DEVICES": {"Phone1": "SERIALABC123", "Phone2": "SERIALDEF456"},
+            "ADB_PATH": "adb",
         }
 
 _cfg_data = _load_config()
 PHONE_NUMBERS = _cfg_data["PHONE_NUMBERS"]
 DEVICES_MAP   = _cfg_data["DEVICES"]
 DEVICE_NAMES  = list(DEVICES_MAP.keys())
+ADB_PATH      = _cfg_data["ADB_PATH"]
 
 
 def _save_config(new_phones: dict, new_serials: dict) -> None:
@@ -204,6 +207,93 @@ ACTIONS = [
         "hints": {"number": "namespace/key (e.g. global/airplane_mode_on)"},
         "desc": "Read an Android settings key via ADB.",
     },
+    {
+        "id": "AIRPLANE_MODE",
+        "label": "Airplane Mode",
+        "color": "#0369a1",
+        "icon": "✈️",
+        "fields": ["target", "value"],
+        "hints": {"value": "on  or  off"},
+        "desc": "Toggle airplane mode on or off.",
+    },
+    {
+        "id": "OPEN_BROWSER",
+        "label": "Open Browser",
+        "color": "#0284c7",
+        "icon": "🌐",
+        "fields": ["target", "value"],
+        "hints": {"value": "URL to open (e.g. https://google.com)"},
+        "desc": "Open a URL in the device browser.",
+    },
+    {
+        "id": "SPEEDTEST",
+        "label": "Speed Test",
+        "color": "#7c3aed",
+        "icon": "⚡",
+        "fields": ["target", "value"],
+        "hints": {"value": "Seconds to wait for result (e.g. 60)"},
+        "desc": "Launch Ookla Speedtest app and start the test.",
+    },
+    {
+        "id": "DOWNLOAD_FILE",
+        "label": "Download File",
+        "color": "#0e7490",
+        "icon": "⬇️",
+        "fields": ["target", "value"],
+        "hints": {"value": "URL or URL:expectedMB (e.g. https://example.com/file.bin:50)"},
+        "default": {"value": "http://ipv4.download.thinkbroadband.com/50MB.zip"},
+        "desc": "Download a file via browser and verify it completes.",
+    },
+    {
+        "id": "SET_VOLTE",
+        "label": "Set VoLTE",
+        "color": "#0f766e",
+        "icon": "📶",
+        "fields": ["target", "value"],
+        "hints": {"value": "on or off"},
+        "default": {"value": "on"},
+        "desc": "Enable or disable VoLTE (Enhanced 4G LTE Mode).",
+    },
+    {
+        "id": "CHECK_WIFI_CALLING",
+        "label": "Check WiFi Calling",
+        "color": "#0369a1",
+        "icon": "📡",
+        "fields": ["target"],
+        "hints": {},
+        "desc": "Check whether WiFi Calling (WFC/VoWiFi) is enabled and registered.",
+    },
+    {
+        "id": "CHECK_NETWORK",
+        "label": "Check Network",
+        "color": "#0e7490",
+        "icon": "📶",
+        "fields": ["target"],
+        "hints": {},
+        "desc": "Check current network type (2G/3G/4G/5G), operator, signal strength and service state.",
+    },
+    {
+        "id": "SET_WIFI_CALLING",
+        "label": "Set WiFi Calling",
+        "color": "#075985",
+        "icon": "📡",
+        "fields": ["target", "value"],
+        "hints": {"value": "on or off, optionally on:0/1/2 (0=WiFi only, 1=prefer cellular, 2=prefer WiFi)"},
+        "default": {"value": "on"},
+        "desc": "Enable or disable WiFi Calling. Value: on / off / on:2",
+    },
+    {
+        "id": "SET_APN",
+        "label": "Set APN",
+        "color": "#b45309",
+        "icon": "📡",
+        "fields": ["target", "number", "value"],
+        "hints": {
+            "number": "APN name (e.g. MobiCom Internet)",
+            "value": "APN string (e.g. internet)",
+        },
+        "desc": "Insert a new APN entry via the telephony content provider.",
+    },
 ]
 
 # ── Flask app ─────────────────────────────────────────────────────────────────
@@ -246,20 +336,22 @@ HTML = r"""<!DOCTYPE html>
   .main { display: flex; flex: 1; overflow: hidden; }
 
   /* ── Palette ── */
-  .palette { width: 220px; min-width: 200px; background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; padding: 12px 10px; }
+  .palette { width: 260px; min-width: 240px; background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; padding: 12px 10px; }
   .palette h2 { font-size: .7rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 8px; padding: 0 4px; }
+  .palette-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 4px; }
   .action-card {
-    display: flex; align-items: center; gap: 8px;
-    padding: 9px 10px; border-radius: 8px; margin-bottom: 6px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+    padding: 8px 6px; border-radius: 8px;
     cursor: grab; user-select: none;
     border: 1px solid transparent;
     transition: background .15s, transform .1s;
-    font-size: .82rem; font-weight: 600; color: #fff;
+    font-size: .72rem; font-weight: 600; color: #fff;
+    text-align: center; min-height: 54px;
   }
   .action-card:active { cursor: grabbing; transform: scale(.97); }
-  .action-card .icon { font-size: 1rem; flex-shrink: 0; }
-  .action-card .info { flex: 1; }
-  .action-card .desc { font-size: .67rem; font-weight: 400; opacity: .75; margin-top: 2px; }
+  .action-card .icon { font-size: 1.2rem; flex-shrink: 0; }
+  .action-card .info { flex: 1; line-height: 1.2; }
+  .action-card .desc { display: none; }
 
   /* ── Canvas split ── */
   .canvas-wrap { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
@@ -391,15 +483,19 @@ HTML = r"""<!DOCTYPE html>
   .section-row {
     background: var(--surface2); border: 1px solid var(--accent);
     border-radius: 8px; padding: 8px 14px;
-    display: flex; align-items: center; gap: 10px;
+    display: flex; align-items: center; gap: 10px; cursor: pointer;
+    user-select: none;
   }
   .section-row input {
     background: transparent; border: none; color: var(--accent);
     font-size: .85rem; font-weight: 700; flex: 1; outline: none;
-    min-width: 0;
+    min-width: 0; cursor: text;
   }
   .section-row input::placeholder { color: var(--muted); font-weight: 400; }
   .section-row .tag { font-size: .65rem; background: var(--accent); color: #fff; padding: 2px 7px; border-radius: 99px; flex-shrink: 0; }
+  .section-arrow { font-size: .8rem; color: var(--accent); transition: transform .15s; flex-shrink: 0; }
+  .section-row.collapsed .section-arrow { transform: rotate(-90deg); }
+  .section-row.collapsed { opacity: .75; }
 
   /* ── Template manager modal ── */
   .tpl-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; max-height: 260px; overflow-y: auto; }
@@ -602,6 +698,7 @@ HTML = r"""<!DOCTYPE html>
     <div class="modal-header">
       <h2>📊 Test Report</h2>
       <span id="report-ts" style="font-size:.72rem;color:var(--muted)"></span>
+      <button class="btn btn-success" style="padding:5px 14px;font-size:.78rem;margin-left:auto" onclick="exportResults()">⬇ Export Excel</button>
       <button class="btn btn-ghost" style="padding:5px 12px;font-size:.78rem" onclick="closeReport()">✕ Close</button>
     </div>
     <div class="modal-body" id="report-body"></div>
@@ -826,33 +923,58 @@ async function saveConfig() {
 }
 
 // ── Palette ───────────────────────────────────────────────────────────────────
+const PALETTE_GROUPS = [
+  { label: '📞 Call',    ids: ['CALL','ANSWER_CALL','END_CALL','CHECK_CALL','CHECK_VOLTE'] },
+  { label: '💬 SMS',    ids: ['SMS','CHECK_SMS'] },
+  { label: '📶 Network', ids: ['SET_NETWORK','AIRPLANE_MODE','SET_APN','USSD','SET_VOLTE','CHECK_WIFI_CALLING','SET_WIFI_CALLING','CHECK_NETWORK'] },
+  { label: '🌐 Apps',   ids: ['OPEN_BROWSER','SPEEDTEST','DOWNLOAD_FILE'] },
+  { label: '⚙️ Device', ids: ['WAKE','WAIT','SET_CONFIG','GET_CONFIG'] },
+];
+
 function buildPalette() {
   const el = document.getElementById('palette');
   el.innerHTML = '';
-  ACTIONS.forEach(a => {
-    const card = document.createElement('div');
-    card.className = 'action-card';
-    card.style.background = a.color + '22';
-    card.style.borderColor = a.color + '55';
-    card.draggable = true;
-    card.innerHTML = `<span class="icon">${a.icon}</span><div class="info"><div>${a.label}</div><div class="desc">${a.desc}</div></div>`;
-    card.addEventListener('dragstart', e => { dragSrc = a.id; dragStepIdx = null; e.dataTransfer.effectAllowed = 'copy'; });
-    card.addEventListener('dblclick', () => addStep(a.id));
-    el.appendChild(card);
+
+  PALETTE_GROUPS.forEach(group => {
+    const groupActions = group.ids.map(id => ACTIONS.find(a => a.id === id)).filter(Boolean);
+    if (!groupActions.length) return;
+
+    const hdr = document.createElement('div');
+    hdr.style.cssText = 'font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);padding:6px 4px 4px;margin-top:4px';
+    hdr.textContent = group.label;
+    el.appendChild(hdr);
+
+    const grid = document.createElement('div');
+    grid.className = 'palette-grid';
+    groupActions.forEach(a => {
+      const card = document.createElement('div');
+      card.className = 'action-card';
+      card.style.background = a.color + '22';
+      card.style.borderColor = a.color + '55';
+      card.draggable = true;
+      card.title = a.desc;
+      card.innerHTML = `<span class="icon">${a.icon}</span><div class="info">${a.label}</div>`;
+      card.addEventListener('dragstart', e => { dragSrc = a.id; dragStepIdx = null; e.dataTransfer.effectAllowed = 'copy'; });
+      card.addEventListener('dblclick', () => addStep(a.id));
+      grid.appendChild(card);
+    });
+    el.appendChild(grid);
   });
+
   refreshDevices();
 }
 
 // ── Step data ─────────────────────────────────────────────────────────────────
 function newStep(actionId) {
   const a = ACTIONS.find(x => x.id === actionId);
+  const def = a.default || {};
   return {
     id: stepCounter++,
     action: actionId,
     target: PHONES[0] || 'Phone1',
-    number: a.id === 'WAIT' ? '5' : '',
-    value: '',
-    expected: '',
+    number: def.number ?? (a.id === 'WAIT' ? '5' : ''),
+    value: def.value ?? '',
+    expected: def.expected ?? '',
     _isSection: false,
   };
 }
@@ -863,7 +985,7 @@ function addStep(actionId) {
 }
 
 function addSection() {
-  steps.push({ id: stepCounter++, _isSection: true, label: 'Section Title' });
+  steps.push({ id: stepCounter++, _isSection: true, label: 'Section Title', collapsed: false });
   render();
 }
 
@@ -879,10 +1001,23 @@ function render() {
   hint.style.display = steps.length ? 'none' : 'block';
 
   let stepNum = 0;
+  let sectionCollapsed = false;
   steps.forEach((s, idx) => {
     if (s._isSection) {
+      sectionCollapsed = s.collapsed || false;
+
       const row = document.createElement('div');
-      row.className = 'section-row';
+      row.className = 'section-row' + (sectionCollapsed ? ' collapsed' : '');
+      row.title = sectionCollapsed ? 'Click to expand' : 'Click to collapse';
+      row.addEventListener('click', e => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+        steps[idx].collapsed = !steps[idx].collapsed;
+        render();
+      });
+
+      const arrow = document.createElement('span');
+      arrow.className = 'section-arrow';
+      arrow.textContent = '▾';
 
       const tag = document.createElement('span');
       tag.className = 'tag';
@@ -894,18 +1029,28 @@ function render() {
       inp.addEventListener('input', e => { steps[idx].label = e.target.value; renderPreview(); });
       inp.addEventListener('click', e => e.stopPropagation());
 
+      const dup = document.createElement('button');
+      dup.className = 'step-btn';
+      dup.title = 'Duplicate section';
+      dup.textContent = '⎘';
+      dup.addEventListener('click', e => { e.stopPropagation(); dupeSection(idx); });
+
       const del = document.createElement('button');
       del.className = 'step-btn';
       del.title = 'Remove section';
       del.textContent = '✕';
       del.addEventListener('click', e => { e.stopPropagation(); removeStep(idx); });
 
+      row.appendChild(arrow);
       row.appendChild(tag);
       row.appendChild(inp);
+      row.appendChild(dup);
       row.appendChild(del);
       list.appendChild(row);
       return;
     }
+
+    if (sectionCollapsed) return;
 
     stepNum++;
     const a = ACTIONS.find(x => x.id === s.action) || { label: s.action, icon: '?', color: '#555', fields: [], hints: {} };
@@ -988,11 +1133,15 @@ function renderPreview() {
     + '</tr></thead><tbody>';
 
   let stepNum = 0;
+  let secCollapsed = false;
   steps.forEach(s => {
     if (s._isSection) {
-      html += `<tr class="section-hdr"><td colspan="6">▸ ${esc(s.label || 'Section')}</td></tr>`;
+      secCollapsed = s.collapsed || false;
+      const arrow = secCollapsed ? '▶' : '▼';
+      html += `<tr class="section-hdr"><td colspan="6">${arrow} ${esc(s.label || 'Section')}</td></tr>`;
       return;
     }
+    if (secCollapsed) return;
     stepNum++;
     const a = ACTIONS.find(x => x.id === s.action) || { color: '#555' };
     const pill = `<span class="action-pill" style="background:${a.color}">${esc(s.action)}</span>`;
@@ -1055,6 +1204,17 @@ function dupeStep(idx) {
   const copy = JSON.parse(JSON.stringify(steps[idx]));
   copy.id = stepCounter++;
   steps.splice(idx + 1, 0, copy);
+  render();
+}
+function dupeSection(idx) {
+  // Collect the section header + all child steps until the next section
+  const block = [steps[idx]];
+  for (let i = idx + 1; i < steps.length; i++) {
+    if (steps[i]._isSection) break;
+    block.push(steps[i]);
+  }
+  const copies = block.map(s => { const c = JSON.parse(JSON.stringify(s)); c.id = stepCounter++; return c; });
+  steps.splice(idx + block.length, 0, ...copies);
   render();
 }
 function moveSelected(dir) { if (selectedIdx !== null) moveStep(selectedIdx, dir === 'up' ? -1 : 1); }
@@ -1376,6 +1536,25 @@ function closeReport() {
   document.getElementById('report-modal').classList.remove('open');
 }
 
+async function exportResults() {
+  if (!_runLog.length) { toast('No results to export.', 'error'); return; }
+  toast('Exporting…', '');
+  const res = await fetch('/export_results', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ log: _runLog, ts: _runTs }),
+  });
+  if (!res.ok) { toast('Export failed', 'error'); return; }
+  const blob = await res.blob();
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const ts   = new Date().toISOString().slice(0,19).replace(/[:T]/g, '-');
+  a.href = url; a.download = `test_results_${ts}.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('Downloaded ✓', 'success');
+}
+
 // ── Toast ─────────────────────────────────────────────────────────────────────
 function toast(msg, type = '') {
   const t = document.getElementById('toast');
@@ -1559,6 +1738,163 @@ def export_excel():
     )
 
 
+@app.route("/export_results", methods=["POST"])
+def export_results():
+    """Turn _runLog (sent from browser) into a styled xlsx and return it."""
+    import openpyxl
+    from openpyxl.styles import Alignment, Font, PatternFill, Border, Side
+    from openpyxl.utils import get_column_letter
+
+    data   = request.get_json(force=True)
+    log    = data.get("log", [])
+    run_ts = data.get("ts", "")
+
+    wb = openpyxl.Workbook()
+
+    # ── Sheet 1: Summary ──────────────────────────────────────────────────────
+    ws_sum = wb.active
+    ws_sum.title = "Summary"
+
+    steps   = [e for e in log if e.get("type") == "step" and e.get("result") != "run"]
+    passed  = sum(1 for e in steps if e.get("result") == "pass")
+    failed  = sum(1 for e in steps if e.get("result") == "fail")
+    skipped = sum(1 for e in steps if e.get("result") == "skip")
+    total   = len(steps)
+    pct     = round(passed / total * 100, 1) if total else 0
+
+    H = Font(bold=True, color="FFFFFF", size=11)
+    accent_fill  = PatternFill("solid", fgColor="4472C4")
+    green_fill   = PatternFill("solid", fgColor="375623")
+    red_fill     = PatternFill("solid", fgColor="7B2C2C")
+    gray_fill    = PatternFill("solid", fgColor="44475A")
+    pass_fill    = PatternFill("solid", fgColor="C6EFCE")
+    fail_fill    = PatternFill("solid", fgColor="FFC7CE")
+    skip_fill    = PatternFill("solid", fgColor="FFEB9C")
+    section_fill = PatternFill("solid", fgColor="2D3250")
+
+    center = Alignment(horizontal="center", vertical="center")
+    left   = Alignment(horizontal="left",   vertical="center", wrap_text=True)
+
+    thin = Side(style="thin", color="CCCCCC")
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    ws_sum.column_dimensions["A"].width = 22
+    ws_sum.column_dimensions["B"].width = 18
+
+    summary_rows = [
+        ("Run time",    run_ts),
+        ("Total steps", total),
+        ("Passed",      passed),
+        ("Failed",      failed),
+        ("Skipped",     skipped),
+        ("Pass rate",   f"{pct}%"),
+    ]
+    fills_sum = [accent_fill, None, green_fill, red_fill, gray_fill, accent_fill]
+
+    for i, (label, val) in enumerate(summary_rows, start=1):
+        ca = ws_sum.cell(row=i, column=1, value=label)
+        cb = ws_sum.cell(row=i, column=2, value=val)
+        f  = fills_sum[i - 1]
+        if f:
+            ca.fill = f; cb.fill = f
+            ca.font = H; cb.font = H
+        else:
+            ca.font = Font(bold=True)
+        ca.alignment = left; cb.alignment = center
+        ca.border = border;  cb.border = border
+        ws_sum.row_dimensions[i].height = 20
+
+    # ── Sheet 2: Results ─────────────────────────────────────────────────────
+    ws = wb.create_sheet("Results")
+
+    COLS = ["#", "Section", "Action", "Target", "Result", "Output"]
+    col_widths = [5, 28, 16, 12, 10, 60]
+
+    for ci, (name, w) in enumerate(zip(COLS, col_widths), start=1):
+        cell = ws.cell(row=1, column=ci, value=name)
+        cell.font  = H
+        cell.fill  = accent_fill
+        cell.alignment = center
+        cell.border = border
+        ws.column_dimensions[get_column_letter(ci)].width = w
+    ws.row_dimensions[1].height = 24
+
+    ACTION_COLORS = {
+        "CALL": "27AE60", "ANSWER_CALL": "2ECC71", "END_CALL": "E74C3C",
+        "SMS": "2980B9", "CHECK_SMS": "3498DB", "CHECK_CALL": "16A085",
+        "CHECK_VOLTE": "0891B2", "USSD": "8E44AD", "SET_NETWORK": "D35400",
+        "WAKE": "F39C12", "WAIT": "95A5A6", "SET_CONFIG": "7F8C8D",
+        "GET_CONFIG": "7F8C8D", "AIRPLANE_MODE": "0369A1",
+        "OPEN_BROWSER": "0284C7", "SPEEDTEST": "7C3AED", "SET_APN": "B45309",
+    }
+
+    data_row = 2
+    step_num = 0
+    current_section = ""
+
+    for ev in log:
+        t = ev.get("type")
+
+        if t == "section":
+            current_section = ev.get("label", "")
+            ws.merge_cells(start_row=data_row, start_column=1,
+                           end_row=data_row, end_column=len(COLS))
+            cell = ws.cell(row=data_row, column=1, value=f"  ▸ {current_section}")
+            cell.font  = Font(bold=True, color="FFFFFF", italic=True)
+            cell.fill  = section_fill
+            cell.alignment = left
+            cell.border = border
+            ws.row_dimensions[data_row].height = 20
+            data_row += 1
+            continue
+
+        if t != "step" or ev.get("result") == "run":
+            continue
+
+        step_num += 1
+        action = ev.get("action", "")
+        target = ev.get("target", "")
+        result = (ev.get("result") or "skip").upper()
+        output = ev.get("output", "")
+
+        rf = {"PASS": pass_fill, "FAIL": fail_fill}.get(result, skip_fill)
+
+        action_col = ACTION_COLORS.get(action, "555555")
+        action_font = Font(bold=True, color=action_col)
+
+        vals = [step_num, current_section, action, target, result, output]
+        for ci, val in enumerate(vals, start=1):
+            cell = ws.cell(row=data_row, column=ci, value=val)
+            cell.fill   = rf
+            cell.border = border
+            if ci == 3:
+                cell.font = action_font
+                cell.alignment = center
+            elif ci == 5:
+                result_font_color = {"PASS": "375623", "FAIL": "7B2C2C"}.get(result, "7D6608")
+                cell.font = Font(bold=True, color=result_font_color)
+                cell.alignment = center
+            elif ci in (1, 4):
+                cell.alignment = center
+            else:
+                cell.alignment = left
+        ws.row_dimensions[data_row].height = 18
+        data_row += 1
+
+    ws.freeze_panes = "A2"
+    ws.auto_filter.ref = f"A1:{get_column_letter(len(COLS))}1"
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return send_file(
+        buf,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        as_attachment=True,
+        download_name="test_results.xlsx",
+    )
+
+
 @app.route("/run", methods=["POST"])
 def run_test():
     """Execute test steps and stream results as SSE."""
@@ -1574,6 +1910,8 @@ def run_test():
         "SMS", "CHECK_SMS", "CHECK_CALL", "CHECK_VOLTE",
         "USSD", "SET_NETWORK", "SET_CONFIG", "GET_CONFIG",
         "WAKE", "WAIT",
+        "AIRPLANE_MODE", "OPEN_BROWSER", "SPEEDTEST", "SET_APN", "DOWNLOAD_FILE",
+        "SET_VOLTE", "CHECK_WIFI_CALLING", "SET_WIFI_CALLING", "CHECK_NETWORK",
     }
 
     def _resolve(target):
@@ -1630,6 +1968,41 @@ def run_test():
                 ok, out = adb.get_config(serial, ns, key) if key else (False, "Bad namespace/key")
             elif action == "WAKE":
                 ok, out = adb.wake_and_unlock(serial)
+            elif action == "AIRPLANE_MODE":
+                # Value can be "on", "off", "on:15", "off:10" (optional wait seconds)
+                ap_parts = (value or "on").split(":")
+                ap_state = ap_parts[0].strip() or "on"
+                ap_wait  = int(ap_parts[1]) if len(ap_parts) > 1 and ap_parts[1].isdigit() else 8
+                ok, out = adb.set_airplane_mode(serial, ap_state, wait_secs=ap_wait)
+            elif action == "OPEN_BROWSER":
+                ok, out = adb.open_browser(serial, value or "https://google.com")
+            elif action == "SPEEDTEST":
+                wait = int(value) if str(value).isdigit() else 60
+                ok, out = adb.run_speedtest(serial, wait_secs=wait)
+            elif action == "DOWNLOAD_FILE":
+                # Value: "https://url/file.bin"  or  "https://url/file.bin:50"
+                import re as _re
+                dl_url    = (value or "").strip()
+                dl_exp_mb = 0.0
+                # Only treat trailing :<number> as expected MB, not part of URL
+                m_mb = _re.search(r"^(https?://.+):(\d+(?:\.\d+)?)$", dl_url)
+                if m_mb:
+                    dl_url    = m_mb.group(1)
+                    dl_exp_mb = float(m_mb.group(2))
+                if not dl_url:
+                    ok, out = False, "DOWNLOAD_FILE needs a URL in Value field"
+                else:
+                    ok, out = adb.download_file(serial, dl_url, expected_mb=dl_exp_mb, timeout=120)
+            elif action == "SET_VOLTE":
+                ok, out = adb.set_volte(serial, value or "on")
+            elif action == "CHECK_WIFI_CALLING":
+                ok, out = adb.check_wifi_calling(serial)
+            elif action == "SET_WIFI_CALLING":
+                ok, out = adb.set_wifi_calling(serial, value or "on")
+            elif action == "CHECK_NETWORK":
+                ok, out = adb.check_network(serial)
+            elif action == "SET_APN":
+                ok, out = adb.set_apn(serial, number, value)
             else:
                 ok, out = False, "Unhandled"
         except Exception as exc:
@@ -1688,7 +2061,7 @@ def wireless_pair():
         return jsonify({"ok": False, "output": "ip, port, code шаардлагатай."})
     try:
         result = subprocess.run(
-            ["adb", "pair", f"{ip}:{port}", code],
+            [ADB_PATH, "pair", f"{ip}:{port}", code],
             capture_output=True, text=True, timeout=20
         )
         output = (result.stdout + result.stderr).strip()
@@ -1708,7 +2081,7 @@ def wireless_connect():
         return jsonify({"ok": False, "output": "ip, port шаардлагатай."})
     try:
         result = subprocess.run(
-            ["adb", "connect", f"{ip}:{port}"],
+            [ADB_PATH, "connect", f"{ip}:{port}"],
             capture_output=True, text=True, timeout=15
         )
         output = (result.stdout + result.stderr).strip()
@@ -1722,11 +2095,44 @@ def wireless_connect():
 def detect_devices():
     """Auto-detect connected ADB devices and try to read their phone numbers."""
     import adb_controller as adb
+    # Reload config so latest saved values are used
+    cfg = _load_config()
+    devices_map   = cfg["DEVICES"]        # {"Phone1": "serial1", ...}
+    phone_numbers = cfg["PHONE_NUMBERS"]  # {"Phone1": "+97699001111", ...}
+    # Reverse map: serial → slot name  (exact match)
+    serial_to_slot = {v: k for k, v in devices_map.items()}
+
+    def _ip_of(s):
+        """Extract IP from wireless serial '192.168.x.x:port', else None."""
+        if re.match(r"\d+\.\d+\.\d+\.\d+:\d+", s):
+            return s.split(":")[0]
+        return None
+
+    # Also build IP → slot map for wireless fallback
+    ip_to_slot = {}
+    for slot, ser in devices_map.items():
+        ip = _ip_of(ser)
+        if ip:
+            ip_to_slot[ip] = slot
+
     serials = adb.get_connected_devices()
     result = []
     for serial in serials:
+        # 1. Try reading from device via ADB
         number = adb.get_device_phone_number(serial)
-        model  = adb.get_device_model(serial)
+        # 2. Exact serial match in config
+        if not number:
+            slot = serial_to_slot.get(serial)
+            if slot:
+                number = phone_numbers.get(slot, "")
+        # 3. IP-only match (port changes on every wireless reconnect)
+        if not number:
+            ip = _ip_of(serial)
+            if ip:
+                slot = ip_to_slot.get(ip)
+                if slot:
+                    number = phone_numbers.get(slot, "")
+        model = adb.get_device_model(serial)
         result.append({"serial": serial, "number": number, "model": model})
     return jsonify({"devices": result})
 
