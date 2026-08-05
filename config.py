@@ -1,12 +1,11 @@
 DEVICES = {
-    "Phone1": "adb-RF8Y606FYXX-ALTQKQ._adb-tls-connect._tcp",
-    "Phone2": "adb-RZ8R70VGAXW-5Gt8FX._adb-tls-connect._tcp",
+    "Phone1": "RZ8R70VGAXW",
 }
 
 # SIM MSISDN per device (E.164). Used in Excel Number/Code when calling/SMS between phones.
 PHONE_NUMBERS = {
-    "Phone1": "+97695319902",
-    "Phone2": "+97694001105",
+    "Phone1 SIM1": "+97695319902",
+    "Phone1 SIM2": "",
 }
 
 EXCEL_PATH = "test_cases.xlsx"

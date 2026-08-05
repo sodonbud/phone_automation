@@ -328,6 +328,40 @@ def get_device_phone_number(serial: str) -> str:
     return ""
 
 
+def get_device_phone_numbers(serial: str) -> tuple[str, str]:
+    """Return (sim1_number, sim2_number) by reading all SIM slots.
+
+    Uses content://telephony/siminfo (Android 9+) to get each slot's number,
+    then falls back to get_device_phone_number() for SIM1 only.
+    """
+    # Primary: content://telephony/siminfo with slot index
+    ok, out = _run(_serial_args(serial) + [
+        "shell", "content", "query",
+        "--uri", "content://telephony/siminfo",
+        "--projection", "sim_slot_index:number:display_name",
+    ], timeout=8)
+    sim1, sim2 = "", ""
+    if ok and out:
+        for line in out.splitlines():
+            if "sim_slot_index=" not in line:
+                continue
+            slot_m = re.search(r"sim_slot_index=(\d)", line)
+            num_m  = re.search(r"\bnumber=([+\d]{7,})", line)
+            if slot_m and num_m:
+                idx = int(slot_m.group(1))
+                num = num_m.group(1)
+                if idx == 0:
+                    sim1 = num
+                elif idx == 1:
+                    sim2 = num
+        if sim1 or sim2:
+            return sim1, sim2
+
+    # Fallback: single-number method covers SIM1
+    sim1 = get_device_phone_number(serial)
+    return sim1, ""
+
+
 def get_device_model(serial: str) -> str:
     """Return a human-readable model name for display (e.g. 'Samsung Galaxy S23')."""
     ok, brand = _run(_serial_args(serial) + ["shell", "getprop", "ro.product.brand"])
@@ -409,16 +443,38 @@ def go_home(serial: str) -> Result:
 
 def make_call(serial: str, number: str) -> Result:
     """Trigger an outgoing call via the Android dialer."""
-    uri = f"tel:{urllib.parse.quote(number)}"
-    return _run(
-        _serial_args(serial)
-        + ["shell", "am", "start", "-a", "android.intent.action.CALL", "-d", uri]
-    )
+    import time
+    uri = f"tel:{number.strip()}"
+    # ACTION_DIAL pre-fills the number without triggering Android's emergency-number block.
+    # KEYCODE_CALL then initiates the call, mimicking a physical button press.
+    ok, out = _run(_serial_args(serial) + ["shell", "am", "start", "-a", "android.intent.action.DIAL", "-d", uri])
+    if not ok:
+        return ok, out
+    time.sleep(1.5)
+    return _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_CALL"])
 
 
 def end_call(serial: str) -> Result:
-    """End an active call by sending the ENDCALL keyevent."""
-    return _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_ENDCALL"])
+    """End an active call."""
+    import time
+    # Primary: hardware ENDCALL key
+    ok, out = _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_ENDCALL"])
+    time.sleep(0.8)
+    if _get_call_state(serial) == 0:
+        return True, "Call ended via KEYCODE_ENDCALL"
+    # Fallback: tap the on-screen end-call button (needed for service/short numbers)
+    root = _dump_ui_tree(serial)
+    if root is not None:
+        keywords = {"end call", "hang up", "disconnect", "decline"}
+        id_suffixes = {":end_call", "/end_call", ":hangup", "/hangup",
+                       ":end_button", "/end_button", ":reject", "/reject"}
+        id_contains = {"end_call", "hangup", "end_button"}
+        coords = _find_clickable(root, keywords, id_suffixes, id_contains)
+        if coords:
+            _run(_serial_args(serial) + ["shell", "input", "tap", str(coords[0]), str(coords[1])])
+            time.sleep(0.5)
+            return True, "Call ended via end-call button tap"
+    return ok, out
 
 
 def wait_for_incoming_call(serial: str, timeout: int = 5) -> Result:
@@ -885,10 +941,12 @@ def check_call_log(serial: str, number: str, call_type: str = "") -> Result:
                 or (len(target) >= 6 and num[-6:] == target[-6:])):
             continue
 
-        dur_match = re.search(r"\bduration=(\d+)", line)
+        dur_match  = re.search(r"\bduration=(\d+)", line)
         type_match = re.search(r"\btype=(\d+)", line)
+        id_match   = re.search(r"\b_id=(\d+)", line)
         duration = int(dur_match.group(1)) if dur_match else 0
-        ctype = type_map.get(type_match.group(1) if type_match else "", "UNKNOWN")
+        ctype    = type_map.get(type_match.group(1) if type_match else "", "UNKNOWN")
+        entry_id = id_match.group(1) if id_match else None
 
         if call_type and call_type.upper() not in (ctype, "ANY"):
             log.debug("Call found but type mismatch: got %s expected %s", ctype, call_type)
@@ -896,6 +954,15 @@ def check_call_log(serial: str, number: str, call_type: str = "") -> Result:
 
         if duration == 0:
             return False, f"Call to/from {number} found but duration=0 (call may not have connected)"
+
+        # Delete the matched entry so repeated test runs don't see stale log entries
+        if entry_id:
+            _run(_serial_args(serial) + [
+                "shell", "content", "delete",
+                "--uri", "content://call_log/calls",
+                "--where", f"_id={entry_id}",
+            ])
+            log.info("Deleted call log entry _id=%s for %s", entry_id, number)
 
         msg = f"Call verified | duration={duration}s | type={ctype} | number={raw_num}"
         log.info(msg)
@@ -1087,8 +1154,11 @@ def check_network(serial: str) -> Result:
                     signal_dbm = v
                     break
 
-    svc_label = SVC_STATES.get(svc_state, "UNKNOWN")
-    parts = [svc_label]
+    parts = []
+    # Only surface service state when it indicates a problem; skip IN_SERVICE / unreadable
+    svc_label = SVC_STATES.get(svc_state, "")
+    if svc_label and svc_label != "IN_SERVICE":
+        parts.append(svc_label)
     if operator:
         parts.append(f"Operator: {operator}")
     parts.append(f"Network: {net_label or 'Unknown'}")
@@ -1591,17 +1661,24 @@ def set_network_type(serial: str, network: str) -> Result:
     OPTION_KEYWORDS: dict[str, list[str]] = {
         "5G":   ["5g (recommended)", "5g/lte/3g/2g", "nr/lte/3g/2g", "5g/lte", "nr/lte", "5g", "nr"],
         "4G5G": ["5g (recommended)", "5g/lte/3g/2g", "nr/lte/3g/2g", "5g/lte", "nr/lte"],
-        "4G":   ["lte (recommended)", "lte/3g/2g", "lte/wcdma/gsm", "4g/3g/2g", "lte"],
-        "3G":   ["3g only", "3g/2g", "3g (recommended)", "3g preferred", "wcdma/gsm"],
-        "2G":   ["2g only", "gsm only", "2g (recommended)", "2g"],
-        "AUTO": ["5g (recommended)", "5g/lte/3g/2g", "lte/3g/2g", "nr/lte/3g/2g"],
+        "4G":   ["lte (recommended)", "lte/3g/2g", "lte/wcdma/gsm", "4g/3g/2g", "4g (recommended)",
+                 "4g only", "lte only", "lte preferred", "lte", "4g"],
+        "3G":   ["3g only", "3g/2g", "3g (recommended)", "3g preferred", "wcdma/gsm", "3g"],
+        "2G":   ["2g only", "gsm only", "2g (recommended)", "2g preferred", "2g"],
+        "AUTO": ["5g (recommended)", "5g/lte/3g/2g", "lte/3g/2g", "nr/lte/3g/2g",
+                 "lte preferred", "lte/wcdma preferred", "automatic", "auto"],
     }
+    # Words that confirm a valid network-type dialog
+    NETWORK_INDICATORS = {"lte", "5g", "nr", "3g", "2g", "wcdma", "gsm", "umts", "4g", "auto"}
 
     key = network.upper().replace(" ", "")
-    if key not in OPTION_KEYWORDS:
-        return False, f"Unknown network type '{network}'. Valid: 2G, 3G, 4G, 5G, 4G5G, AUTO"
-
-    keywords = OPTION_KEYWORDS[key]
+    if key in OPTION_KEYWORDS:
+        keywords = OPTION_KEYWORDS[key]
+        raw_label: str | None = None
+    else:
+        # Raw on-screen text from get_network_options() — skip keyword matching, do direct tap
+        keywords = []
+        raw_label = network.strip()
 
     # ── Step 1: open Mobile Networks settings ────────────────────────
     # Try Samsung intent first, fall back to AOSP/Pixel intent
@@ -1637,19 +1714,25 @@ def set_network_type(serial: str, network: str) -> Result:
             break
 
     if not network_mode_coords:
-        # Fallback: find any clickable row whose text/summary contains "network mode"
+        # Fallback: clickable row whose subtexts contain network-mode keywords
+        # but NOT billing/data-usage terms (those open a date picker, not a network dialog)
+        EXCLUDE = {"billing", "cycle", "usage", "roaming", "access point", "apn"}
         for node in root.iter("node"):
             if node.get("clickable") != "true":
                 continue
             subtexts = " ".join((n.get("text") or "") for n in node.iter("node")).lower()
-            if "network mode" in subtexts or "preferred network" in subtexts:
-                nums = re.findall(r"\d+", node.get("bounds", ""))
-                if len(nums) == 4:
-                    network_mode_coords = (
-                        (int(nums[0]) + int(nums[2])) // 2,
-                        (int(nums[1]) + int(nums[3])) // 2,
-                    )
-                break
+            if not ("network mode" in subtexts or "preferred network" in subtexts
+                    or "network type" in subtexts):
+                continue
+            if any(excl in subtexts for excl in EXCLUDE):
+                continue
+            nums = re.findall(r"\d+", node.get("bounds", ""))
+            if len(nums) == 4:
+                network_mode_coords = (
+                    (int(nums[0]) + int(nums[2])) // 2,
+                    (int(nums[1]) + int(nums[3])) // 2,
+                )
+            break
 
     if not network_mode_coords:
         return False, "Could not find 'Network mode' row in settings UI"
@@ -1664,32 +1747,169 @@ def set_network_type(serial: str, network: str) -> Result:
     if root2 is None:
         return False, "Could not dump UI for network mode dialog"
 
+    # Guard: if the dialog doesn't look like a network selection, we tapped the wrong row
+    dialog_texts_raw = [(n.get("text") or "").strip().lower() for n in root2.iter("node")]
+    if not any(ind in t for t in dialog_texts_raw for ind in NETWORK_INDICATORS):
+        _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_BACK"])
+        visible = [t for t in dialog_texts_raw if len(t) > 1][:10]
+        return False, (
+            f"Wrong dialog opened after tapping (expected network selection, "
+            f"got: {visible}). Check that Settings > Mobile Networks > Network mode exists."
+        )
+
+    def _tap_node(node) -> bool:
+        nums = re.findall(r"\d+", node.get("bounds", ""))
+        if len(nums) != 4:
+            return False
+        ox = (int(nums[0]) + int(nums[2])) // 2
+        oy = (int(nums[1]) + int(nums[3])) // 2
+        _run(_serial_args(serial) + ["shell", "input", "tap", str(ox), str(oy)])
+        log.info("Tapped network option at (%d, %d)", ox, oy)
+        time.sleep(1)
+        _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_BACK"])
+        return True
+
+    if raw_label:
+        # Raw on-screen text path: direct case-insensitive match against dialog items
+        for node in root2.iter("node"):
+            text = (node.get("text") or "").strip()
+            if text.lower() == raw_label.lower():
+                if _tap_node(node):
+                    return True, f"Network type set to '{text}'"
+        # Nothing left open — no BACK needed, return error
+        available = [
+            (n.get("text") or "").strip()
+            for n in root2.iter("node")
+            if (n.get("text") or "").strip() and len((n.get("text") or "").strip()) > 1
+        ]
+        _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_BACK"])
+        return False, f"Option '{raw_label}' not found in dialog. Available: {available[:15]}"
+
+    # Keyword matching path (internal labels: 2G, 3G, 4G, 5G, 4G5G, AUTO)
     for kw in keywords:
         for node in root2.iter("node"):
             text = (node.get("text") or "").strip().lower()
             if text.startswith(kw):
-                nums = re.findall(r"\d+", node.get("bounds", ""))
-                if len(nums) == 4:
-                    ox = (int(nums[0]) + int(nums[2])) // 2
-                    oy = (int(nums[1]) + int(nums[3])) // 2
-                    _run(_serial_args(serial) + ["shell", "input", "tap", str(ox), str(oy)])
-                    log.info("Selected network option '%s' at (%d, %d)", text, ox, oy)
-                    time.sleep(1)
-                    # Press back to close settings
-                    _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_BACK"])
+                if _tap_node(node):
                     return True, f"Network type set to {network} (option: '{text}')"
 
-    # Log all available options to help debug
+    # AUTO fallback: if no keyword matched, pick the first available network option
+    if key == "AUTO":
+        for node in root2.iter("node"):
+            text = (node.get("text") or "").strip()
+            if not text or len(text) < 2:
+                continue
+            if any(ind in text.lower() for ind in NETWORK_INDICATORS):
+                if _tap_node(node):
+                    return True, f"Network type set to AUTO (selected: '{text}')"
+
+    # Do NOT press BACK here — _run_step() screenshots the open dialog first, then presses back
     available = [
         (n.get("text") or "").strip()
         for n in root2.iter("node")
         if (n.get("text") or "").strip() and len((n.get("text") or "").strip()) > 1
     ]
-    _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_BACK"])
     return False, (
         f"Option for '{network}' not found in dialog. "
         f"Available texts: {available[:15]}"
     )
+
+
+def get_network_options(serial: str) -> list:
+    """Open the network-type picker, read available options, close dialog.
+
+    Returns the raw on-screen option strings (e.g. ["LTE/3G/2G (Recommended)", "3G Only"]).
+    Returns [] on failure or if the device is offline.
+    """
+    log = get_logger()
+    NETWORK_INDICATORS = {"lte", "5g", "nr", "3g", "2g", "wcdma", "gsm", "umts", "4g", "auto"}
+    EXCLUDE = {"billing", "cycle", "usage", "roaming", "access point", "apn"}
+
+    if serial not in get_connected_devices():
+        return []
+
+    # Step 1: open Mobile Networks settings
+    root = None
+    for intent_args in [
+        ["-n", "com.android.settings/.Settings$MobileNetworkActivity"],
+        ["-a", "android.settings.NETWORK_OPERATOR_SETTINGS"],
+    ]:
+        _run(_serial_args(serial) + ["shell", "am", "start"] + intent_args)
+        time.sleep(2)
+        root = _dump_ui_tree(serial)
+        if root is None:
+            continue
+        all_text = " ".join((n.get("text") or "").lower() for n in root.iter("node"))
+        if "network mode" in all_text or "preferred network type" in all_text:
+            break
+
+    if root is None:
+        _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_BACK"])
+        return []
+
+    # Step 2: find and tap the "Network mode" / "Preferred network type" row
+    tapped = False
+    for node in root.iter("node"):
+        text = (node.get("text") or "").strip().lower()
+        if text in ("network mode", "preferred network type", "network type"):
+            nums = re.findall(r"\d+", node.get("bounds", ""))
+            if len(nums) == 4:
+                x = (int(nums[0]) + int(nums[2])) // 2
+                y = (int(nums[1]) + int(nums[3])) // 2
+                _run(_serial_args(serial) + ["shell", "input", "tap", str(x), str(y)])
+                tapped = True
+                break
+
+    if not tapped:
+        for node in root.iter("node"):
+            if node.get("clickable") != "true":
+                continue
+            subtexts = " ".join((n.get("text") or "") for n in node.iter("node")).lower()
+            if not ("network mode" in subtexts or "preferred network" in subtexts
+                    or "network type" in subtexts):
+                continue
+            if any(excl in subtexts for excl in EXCLUDE):
+                continue
+            nums = re.findall(r"\d+", node.get("bounds", ""))
+            if len(nums) == 4:
+                x = (int(nums[0]) + int(nums[2])) // 2
+                y = (int(nums[1]) + int(nums[3])) // 2
+                _run(_serial_args(serial) + ["shell", "input", "tap", str(x), str(y)])
+                tapped = True
+                break
+
+    if not tapped:
+        _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_BACK"])
+        return []
+
+    time.sleep(1.5)
+
+    # Step 3: read the dialog, then close it
+    root2 = _dump_ui_tree(serial)
+    _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_BACK"])
+    _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_BACK"])
+
+    if root2 is None:
+        return []
+
+    # Validate it's really a network-type dialog
+    dialog_lower = [(n.get("text") or "").strip().lower() for n in root2.iter("node")]
+    if not any(ind in t for t in dialog_lower for ind in NETWORK_INDICATORS):
+        return []
+
+    # Collect option texts that contain network-type keywords
+    options: list[str] = []
+    seen: set[str] = set()
+    for node in root2.iter("node"):
+        text = (node.get("text") or "").strip()
+        if not text or len(text) < 2 or text in seen:
+            continue
+        if any(ind in text.lower() for ind in NETWORK_INDICATORS):
+            options.append(text)
+            seen.add(text)
+
+    log.info("Network options for %s: %s", serial, options)
+    return options
 
 
 def set_config(serial: str, namespace: str, key: str, value: str) -> Result:
@@ -1700,6 +1920,11 @@ def set_config(serial: str, namespace: str, key: str, value: str) -> Result:
 def get_config(serial: str, namespace: str, key: str) -> Result:
     """Read a device setting via `adb shell settings get`."""
     return _run(_serial_args(serial) + ["shell", "settings", "get", namespace, key])
+
+
+def press_back(serial: str) -> Result:
+    """Press the Back key on the device."""
+    return _run(_serial_args(serial) + ["shell", "input", "keyevent", "KEYCODE_BACK"])
 
 
 def _get_network_status(serial: str) -> dict:
@@ -2158,3 +2383,65 @@ def screenshot(serial: str, save_path: str) -> Result:
     if not ok:
         return False, out
     return _run(_serial_args(serial) + ["pull", remote, save_path])
+
+
+def get_device_status(serial: str) -> dict:
+    """Lightweight status poll for the monitoring dashboard. No UI dumps."""
+    NET_MAP = {
+        "LTE": "LTE (4G)", "NR_NSA": "5G NSA", "NR_SA": "5G SA", "NR": "5G",
+        "UMTS": "3G", "HSDPA": "3.5G", "HSUPA": "3.5G", "HSPA": "3.5G",
+        "HSPAP": "HSPA+", "TD_SCDMA": "TD-SCDMA", "EDGE": "EDGE (2G)",
+        "GPRS": "GPRS (2G)", "GSM": "GSM (2G)",
+    }
+    status: dict = {"serial": serial, "online": False}
+
+    connected = get_connected_devices()
+    if serial not in connected:
+        return status
+    status["online"] = True
+
+    # Model
+    ok, out = _run(_serial_args(serial) + ["shell", "getprop", "ro.product.model"], timeout=5)
+    if ok:
+        status["model"] = out.strip()
+
+    # Network type
+    ok, out = _run(_serial_args(serial) + ["shell", "getprop", "gsm.network.type"], timeout=5)
+    if ok and out.strip():
+        status["network"] = NET_MAP.get(out.strip().upper(), out.strip())
+    else:
+        status["network"] = "Unknown"
+
+    # Operator
+    ok, out = _run(_serial_args(serial) + ["shell", "getprop", "gsm.operator.alpha"], timeout=5)
+    if ok:
+        status["operator"] = out.strip()
+
+    # Battery (level + charging status)
+    ok, out = _run(_serial_args(serial) + ["shell", "dumpsys", "battery"], timeout=6)
+    if ok:
+        m = re.search(r"level:\s*(\d+)", out)
+        if m:
+            status["battery"] = int(m.group(1))
+        m_st = re.search(r"status:\s*(\d+)", out)
+        status["charging"] = bool(m_st and m_st.group(1) == "2")
+
+    # Signal strength (LTE RSRP preferred, fallback to SS RSSI)
+    ok, out = _run(_serial_args(serial) + ["shell", "dumpsys", "telephony.registry"], timeout=6)
+    if ok:
+        m = re.search(r"mLteRsrp\s*=\s*(-?\d+)", out)
+        if not m:
+            m = re.search(r"mSignalStrength.*?(-\d{2,3})", out)
+        if m:
+            status["signal_dbm"] = int(m.group(1))
+
+    # VoLTE and WiFi Calling from settings DB (fast read)
+    ok, out = _run(_serial_args(serial) + ["shell", "settings", "get", "global", "volte_vt_enabled"], timeout=5)
+    if ok and out.strip() in ("0", "1"):
+        status["volte"] = out.strip() == "1"
+
+    ok, out = _run(_serial_args(serial) + ["shell", "settings", "get", "global", "wfc_ims_enabled"], timeout=5)
+    if ok and out.strip() in ("0", "1"):
+        status["wifi_calling"] = out.strip() == "1"
+
+    return status

@@ -12,6 +12,7 @@ import subprocess
 import sys
 import time
 import threading
+from datetime import datetime
 
 from flask import Flask, Response, jsonify, render_template_string, request, send_file, stream_with_context
 
@@ -21,17 +22,29 @@ CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.p
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 def _load_config():
+    def _migrate_phones(raw: dict) -> dict:
+        """Upgrade old {PhoneN: number} format to {PhoneN SIM1/SIM2: number}."""
+        out = {}
+        for k, v in raw.items():
+            if " SIM" in k:
+                out[k] = v
+            else:
+                out[k + " SIM1"] = v
+                out[k + " SIM2"] = ""
+        return out
+
     try:
         import config as _cfg
         importlib.reload(_cfg)
         return {
-            "PHONE_NUMBERS": dict(getattr(_cfg, "PHONE_NUMBERS", {})),
+            "PHONE_NUMBERS": _migrate_phones(dict(getattr(_cfg, "PHONE_NUMBERS", {}))),
             "DEVICES": dict(getattr(_cfg, "DEVICES", {})),
             "ADB_PATH": getattr(_cfg, "ADB_PATH", "adb"),
         }
     except ImportError:
         return {
-            "PHONE_NUMBERS": {"Phone1": "+97699001111", "Phone2": "+97699002222"},
+            "PHONE_NUMBERS": {"Phone1 SIM1": "+97699001111", "Phone1 SIM2": "",
+                               "Phone2 SIM1": "+97699002222", "Phone2 SIM2": ""},
             "DEVICES": {"Phone1": "SERIALABC123", "Phone2": "SERIALDEF456"},
             "ADB_PATH": "adb",
         }
@@ -71,6 +84,60 @@ def _save_config(new_phones: dict, new_serials: dict) -> None:
     PHONE_NUMBERS = d["PHONE_NUMBERS"]
     DEVICES_MAP   = d["DEVICES"]
     DEVICE_NAMES  = list(DEVICES_MAP.keys())
+
+
+# ── Data storage ──────────────────────────────────────────────────────────────
+DATA_DIR        = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+HISTORY_FILE    = os.path.join(DATA_DIR, "history.json")
+
+SECTIONS_FILE   = os.path.join(DATA_DIR, "sections.json")
+TEMPLATES_FILE  = os.path.join(DATA_DIR, "templates.json")
+
+os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(SCREENSHOTS_DIR, exist_ok=True)
+
+
+def _load_sections() -> list:
+    try:
+        with open(SECTIONS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return []
+
+
+def _write_sections(sections: list) -> None:
+    with open(SECTIONS_FILE, "w", encoding="utf-8") as f:
+        json.dump(sections, f, indent=2)
+
+
+def _load_templates() -> list:
+    try:
+        with open(TEMPLATES_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return []
+
+
+def _write_templates(templates: list) -> None:
+    with open(TEMPLATES_FILE, "w", encoding="utf-8") as f:
+        json.dump(templates, f, indent=2)
+
+
+def _load_history() -> list:
+    try:
+        with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return []
+
+
+def _save_run(run: dict) -> None:
+    history = _load_history()
+    history.insert(0, run)
+    history = history[:50]
+    with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+        json.dump(history, f, indent=2)
+
 
 # ── Action metadata ───────────────────────────────────────────────────────────
 ACTIONS = [
@@ -175,6 +242,7 @@ ACTIONS = [
         "icon": "📶",
         "fields": ["target", "number"],
         "hints": {"number": "Network type: 2G / 3G / 4G / 5G / 4G5G / AUTO"},
+        "default": {"number": "4G"},
         "desc": "Change the preferred network mode.",
     },
     {
@@ -294,6 +362,65 @@ ACTIONS = [
         },
         "desc": "Insert a new APN entry via the telephony content provider.",
     },
+    # ── Data Package (API) ───────────────────────────────────────────────────
+    {
+        "id": "DP_CREATE",
+        "label": "Create Package",
+        "color": "#059669",
+        "icon": "📦",
+        "fields": ["number", "value"],
+        "hints": {
+            "number": "Subscriber SIM (e.g. Phone1 SIM1)",
+            "value": "Package to create",
+        },
+        "desc": "Create a data package for a subscriber via API.",
+    },
+    {
+        "id": "DP_DELETE",
+        "label": "Delete Package",
+        "color": "#dc2626",
+        "icon": "🗑️",
+        "fields": ["number", "value"],
+        "hints": {
+            "number": "Subscriber SIM (e.g. Phone1 SIM1)",
+            "value": "Package code (auto-filled)",
+        },
+        "desc": "Delete a data package for a subscriber via API.",
+    },
+    {
+        "id": "DP_MODIFY",
+        "label": "Modify Package",
+        "color": "#d97706",
+        "icon": "✏️",
+        "fields": ["number", "value2"],
+        "hints": {
+            "number": "Subscriber SIM (e.g. Phone1 SIM1)",
+            "value2": "Threshold",
+        },
+        "desc": "Modify/update a data package for a subscriber via API.",
+    },
+    {
+        "id": "DP_CHECK",
+        "label": "Check Package",
+        "color": "#0891b2",
+        "icon": "🔍",
+        "fields": ["number"],
+        "hints": {
+            "number": "Subscriber SIM (e.g. Phone1 SIM1)",
+        },
+        "desc": "Check/query a specific data package for a subscriber via API.",
+    },
+    {
+        "id": "DP_SELECT",
+        "label": "Select Package",
+        "color": "#7c3aed",
+        "icon": "📋",
+        "fields": ["number"],
+        "hints": {
+            "number": "Subscriber SIM (e.g. Phone1 SIM1)",
+        },
+        "desc": "Get/select the list of data packages for a subscriber via API.",
+    },
 ]
 
 # ── Flask app ─────────────────────────────────────────────────────────────────
@@ -319,12 +446,12 @@ HTML = r"""<!DOCTYPE html>
     --danger: #e53e3e;
     --success: #38a169;
   }
-  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
-  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 20px; display: flex; align-items: center; gap: 12px; }
-  header h1 { font-size: 1.1rem; font-weight: 700; color: var(--text); flex: 1; }
-  .badge { background: var(--accent); color: #fff; font-size: 0.65rem; padding: 2px 8px; border-radius: 99px; font-weight: 600; letter-spacing: .5px; }
-  .toolbar { display: flex; gap: 8px; }
-  .btn { border: none; border-radius: 8px; padding: 7px 16px; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: opacity .15s, transform .1s; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 8px 16px; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  header h1 { font-size: 1rem; font-weight: 700; color: var(--text); flex: 1; }
+  .badge { background: var(--accent); color: #fff; font-size: 0.6rem; padding: 2px 7px; border-radius: 99px; font-weight: 600; letter-spacing: .5px; }
+  .toolbar { display: flex; gap: 6px; }
+  .btn { border: none; border-radius: 7px; padding: 5px 13px; font-size: 0.78rem; font-weight: 600; cursor: pointer; transition: opacity .15s, transform .1s; }
   .btn:active { transform: scale(.97); }
   .btn-primary { background: var(--accent); color: #fff; }
   .btn-primary:hover { opacity: .88; }
@@ -333,29 +460,30 @@ HTML = r"""<!DOCTYPE html>
   .btn-danger { background: var(--danger); color: #fff; }
   .btn-success { background: var(--success); color: #fff; }
 
-  .main { display: flex; flex: 1; overflow: hidden; }
+  .main { display: flex; flex: 1; overflow: hidden; min-height: 0; }
 
   /* ── Palette ── */
-  .palette { width: 260px; min-width: 240px; background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; padding: 12px 10px; }
-  .palette h2 { font-size: .7rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 8px; padding: 0 4px; }
-  .palette-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 4px; }
+  .palette { width: 230px; min-width: 200px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+  .palette-actions { flex: 1; overflow-y: auto; padding: 8px 8px 4px; }
+  .palette h2 { font-size: .65rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 6px; padding: 0 4px; }
+  .palette-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 2px; }
   .action-card {
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
-    padding: 8px 6px; border-radius: 8px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    padding: 5px 4px; border-radius: 7px;
     cursor: grab; user-select: none;
     border: 1px solid transparent;
     transition: background .15s, transform .1s;
-    font-size: .72rem; font-weight: 600; color: #fff;
-    text-align: center; min-height: 54px;
+    font-size: .67rem; font-weight: 600; color: #fff;
+    text-align: center; min-height: 42px;
   }
   .action-card:active { cursor: grabbing; transform: scale(.97); }
-  .action-card .icon { font-size: 1.2rem; flex-shrink: 0; }
-  .action-card .info { flex: 1; line-height: 1.2; }
+  .action-card .icon { font-size: 1rem; flex-shrink: 0; }
+  .action-card .info { flex: 1; line-height: 1.15; }
   .action-card .desc { display: none; }
 
   /* ── Canvas split ── */
   .canvas-wrap { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
-  .canvas-toolbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 8px 16px; display: flex; gap: 8px; align-items: center; }
+  .canvas-toolbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 5px 12px; display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
   .canvas-toolbar span { color: var(--muted); font-size: .78rem; }
   .canvas-toolbar .spacer { flex: 1; }
   .pane-label { font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); padding: 6px 16px 0; }
@@ -407,7 +535,20 @@ HTML = r"""<!DOCTYPE html>
   }
   .run-title { font-size: .85rem; font-weight: 700; color: var(--text); }
   .run-summary { font-size: .78rem; color: var(--muted); display: flex; gap: 10px; }
+  .run-body { display:flex; flex:1; overflow:hidden; min-height:0; }
   .run-log { flex: 1; overflow-y: auto; padding: 10px 20px; font-family: 'Cascadia Code','Consolas',monospace; font-size: .75rem; }
+  .monitor-col { width:260px; flex-shrink:0; border-left:1px solid var(--border); overflow-y:auto; background:var(--surface); display:none; }
+  .monitor-col.visible { display:block; }
+  .mon-phone { padding:12px; border-bottom:1px solid var(--border); }
+  .mon-phone-name { font-size:.78rem; font-weight:700; display:flex; align-items:center; gap:6px; margin-bottom:8px; flex-wrap:wrap; }
+  .mon-row { display:flex; justify-content:space-between; align-items:center; font-size:.7rem; padding:3px 0; border-bottom:1px solid rgba(255,255,255,.03); }
+  .mon-row:last-child { border-bottom:none; }
+  .mon-label { color:var(--muted); }
+  .mon-val { font-weight:600; }
+  .mon-val.on { color:#48bb78; }
+  .mon-val.off { color:var(--muted); }
+  .mon-val.ringing { color:#f6e05e; animation:pulse .8s ease-in-out infinite; }
+  .mon-val.active { color:#48bb78; }
   .log-row { display: flex; align-items: flex-start; gap: 10px; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,.04); }
   .log-step { color: var(--muted); min-width: 26px; flex-shrink: 0; text-align: right; }
   .log-action { min-width: 130px; flex-shrink: 0; }
@@ -479,6 +620,22 @@ HTML = r"""<!DOCTYPE html>
   }
   .field-group select:focus, .field-group input:focus { border-color: var(--accent); }
 
+  /* ── Searchable select ── */
+  .searchable-wrap { position: relative; }
+  .searchable-dropdown {
+    position: absolute; top: calc(100% + 2px); left: 0; right: 0; z-index: 200;
+    background: var(--surface2); border: 1px solid var(--accent);
+    border-radius: 6px; max-height: 180px; overflow-y: auto;
+    display: none; box-shadow: 0 6px 20px rgba(0,0,0,.5);
+  }
+  .searchable-dropdown.open { display: block; }
+  .searchable-option {
+    padding: 5px 9px; font-size: .78rem; cursor: pointer; color: var(--text);
+    border-bottom: 1px solid rgba(255,255,255,.04);
+  }
+  .searchable-option:last-child { border-bottom: none; }
+  .searchable-option:hover, .searchable-option.focused { background: var(--accent); color: #fff; }
+
   /* Section divider */
   .section-row {
     background: var(--surface2); border: 1px solid var(--accent);
@@ -514,7 +671,7 @@ HTML = r"""<!DOCTYPE html>
   .toast.error { border-color: var(--danger); }
 
   /* ── Device panel ── */
-  .device-panel { border-top: 1px solid var(--border); padding: 10px; margin-top: 4px; }
+  .device-panel { border-top: 1px solid var(--border); padding: 8px; flex-shrink: 0; }
   .device-panel h2 { font-size: .7rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 8px; padding: 0 4px; display: flex; align-items: center; justify-content: space-between; }
   .device-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 8px; }
   .device-card .device-title { font-size: .78rem; font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
@@ -530,9 +687,105 @@ HTML = r"""<!DOCTYPE html>
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* ── Saved sections dropdown ── */
+  .sec-dropdown { position:relative; }
+  .sec-menu { display:none; position:absolute; top:calc(100% + 6px); left:0; background:var(--surface); border:1px solid var(--border); border-radius:10px; min-width:280px; max-height:340px; overflow-y:auto; box-shadow:0 8px 24px rgba(0,0,0,.45); z-index:300; padding:8px; }
+  .sec-menu.open { display:block; }
+  .saved-sec-card { display:flex; align-items:center; gap:6px; background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:6px 8px; margin-bottom:5px; font-size:.75rem; }
+  .saved-sec-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .saved-sec-btn { background:none; border:1px solid var(--border); border-radius:4px; color:var(--text); cursor:pointer; font-size:.72rem; padding:2px 6px; }
+  .saved-sec-btn:hover { background:var(--surface2); border-color:var(--accent); }
+  .log-section-result { display:inline-block; margin-left:8px; font-size:.65rem; font-weight:700; padding:1px 6px; border-radius:10px; }
+  .log-section-result.pass { background:#276749; color:#9ae6b4; }
+  .log-section-result.fail { background:#742a2a; color:#feb2b2; }
+
+  /* ── History ── */
+  .history-card { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:12px 14px; cursor:pointer; transition:border-color .15s; }
+  .history-card:hover { border-color:var(--accent); }
+  .history-detail table { width:100%; border-collapse:collapse; }
+  .history-detail td { padding:3px 4px; color:var(--text); }
+  .sparkline-bar { display:flex; gap:3px; align-items:flex-end; height:40px; background:var(--surface2); border-radius:6px; padding:6px; }
+
+  /* ── Screenshot link ── */
+  .screenshot-link { display:inline-block; margin-top:4px; font-size:.68rem; color:var(--accent); text-decoration:none; }
+  .screenshot-link:hover { text-decoration:underline; }
+
+  /* ── Timing pill ── */
+  .timing-pill { display:inline-block; background:var(--surface2); border:1px solid var(--border); border-radius:10px; font-size:.65rem; padding:1px 6px; color:var(--muted); margin-left:6px; }
+
+  /* ── Loading spinner ── */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-spinner {
+    width: 12px; height: 12px; flex-shrink: 0;
+    border: 2px solid var(--border); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin .7s linear infinite; display: inline-block;
+  }
+  .field-loading {
+    display: flex; align-items: center; gap: 6px;
+    font-size: .72rem; color: var(--muted); padding: 5px 8px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 6px; width: 100%;
+  }
+
+  /* ── Toggle switch ── */
+  .toggle-wrap { display:inline-flex; align-items:center; cursor:pointer; position:relative; }
+  .toggle-wrap input[type="checkbox"] { display:none; }
+  .toggle-slider {
+    width:38px; height:22px; background:var(--border); border-radius:11px;
+    position:relative; transition:background .2s;
+  }
+  .toggle-slider::after {
+    content:''; position:absolute; width:16px; height:16px; border-radius:50%;
+    background:#fff; top:3px; left:3px; transition:transform .2s;
+    box-shadow:0 1px 3px rgba(0,0,0,.3);
+  }
+  .toggle-wrap input:checked + .toggle-slider { background:var(--success); }
+  .toggle-wrap input:checked + .toggle-slider::after { transform:translateX(16px); }
+  .toggle-state { font-size:.75rem; font-weight:700; min-width:26px; }
+
+  /* ── Startup overlay ─────────────────────────────────── */
+  #startup-overlay {
+    position:fixed; inset:0; background:var(--bg); z-index:9999;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px;
+  }
+  #startup-overlay .spin { width:48px; height:48px; border:4px solid var(--border);
+    border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; }
+  #startup-overlay p { color:var(--muted); font-size:.9rem; }
+
+  /* ── Floating device panel ───────────────────────────── */
+  .device-float {
+    position:fixed; bottom:0; right:16px; width:270px; z-index:600;
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:10px 10px 0 0; box-shadow:0 -4px 24px rgba(0,0,0,.4);
+  }
+  .device-float-header {
+    padding:8px 12px; cursor:pointer; display:flex; align-items:center; gap:8px;
+    font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px;
+    color:var(--muted); border-bottom:1px solid var(--border); user-select:none;
+  }
+  .device-float-header:hover { color:var(--text); }
+  .device-float-body { padding:8px; max-height:380px; overflow-y:auto; }
+  .device-float.collapsed .device-float-body { display:none; }
+  .device-float-chevron { margin-left:auto; transition:transform .2s; }
+  .device-float.collapsed .device-float-chevron { transform:rotate(180deg); }
+
+  /* ── Device status bar (in run panel) ───────────────── */
+  .device-status-bar {
+    display:flex; gap:8px; flex-wrap:wrap; padding:4px 12px;
+    background:var(--surface2); border-bottom:1px solid var(--border); font-size:.7rem;
+  }
+  .dsb-chip { display:inline-flex; align-items:center; gap:4px; padding:2px 7px;
+    border-radius:10px; background:var(--surface); border:1px solid var(--border); }
+  .dsb-chip .dot { width:6px; height:6px; border-radius:50%; background:var(--border); flex-shrink:0; }
+  .dsb-chip .dot.online { background:#4ade80; }
 </style>
 </head>
 <body>
+<div id="startup-overlay">
+  <div class="spin"></div>
+  <p id="startup-msg">Detecting phones…</p>
+</div>
 <header>
   <h1>📱 Phone Test Builder</h1>
   <span class="badge">ADB Automation</span>
@@ -540,6 +793,14 @@ HTML = r"""<!DOCTYPE html>
     <button class="btn btn-ghost" onclick="addSection()">+ Section</button>
     <button class="btn btn-ghost" onclick="clearAll()">Clear</button>
     <button class="btn btn-ghost" onclick="openTemplateManager()">📁 Templates</button>
+    <div class="sec-dropdown" id="sec-dropdown">
+      <button class="btn btn-ghost" onclick="toggleSectionsMenu(event)">📂 Sections ▾</button>
+      <div class="sec-menu" id="sec-menu">
+        <div id="saved-sections-list"><div style="font-size:.72rem;color:var(--muted);padding:4px">No saved sections yet.</div></div>
+      </div>
+    </div>
+    <button class="btn btn-ghost" onclick="openHistory()">📊 History</button>
+    <a class="btn btn-ghost" href="/monitor" target="_blank" style="text-decoration:none">🖥 Monitor</a>
     <button class="btn btn-success" onclick="exportExcel()">⬇ Export Excel</button>
     <button class="btn btn-run" id="run-btn" onclick="toggleRun()">▶ Run Test</button>
   </div>
@@ -548,15 +809,9 @@ HTML = r"""<!DOCTYPE html>
 <div class="main">
   <!-- Palette -->
   <aside class="palette">
-    <h2>Actions</h2>
-    <div id="palette"></div>
-    <!-- Device config panel -->
-    <div class="device-panel">
-      <h2>Devices <span style="font-size:.6rem;color:var(--accent);cursor:pointer" onclick="refreshDevices()">↻ refresh</span></h2>
-      <div id="device-cards"></div>
-      <button class="save-config-btn" style="background:var(--surface2);color:var(--accent);border:1px solid var(--accent);margin-bottom:6px" onclick="autoDetect()">🔍 Auto Detect Devices</button>
-      <button class="save-config-btn" style="background:var(--surface2);color:#a78bfa;border:1px solid #a78bfa;margin-bottom:6px" onclick="openWirelessModal()">📡 Wireless Pair</button>
-      <button class="save-config-btn" onclick="saveConfig()">💾 Save to config.py</button>
+    <div class="palette-actions">
+      <h2>Actions</h2>
+      <div id="palette"></div>
     </div>
   </aside>
 
@@ -591,7 +846,27 @@ HTML = r"""<!DOCTYPE html>
       <button class="btn btn-ghost" style="font-size:.75rem;padding:4px 10px" onclick="clearRun()">Clear</button>
       <button class="btn btn-ghost" style="font-size:.75rem;padding:4px 10px" onclick="closeRun()">✕</button>
     </div>
-    <div class="run-log" id="run-log"></div>
+    <div class="device-status-bar" id="device-status-bar" style="display:none"></div>
+    <div class="run-body">
+      <div class="run-log" id="run-log"></div>
+      <div class="monitor-col" id="monitor-col"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Floating device panel -->
+<div class="device-float" id="device-float">
+  <div class="device-float-header" onclick="toggleDeviceFloat()">
+    📱 Devices
+    <span id="device-float-online" style="color:#4ade80;font-size:.65rem"></span>
+    <span style="margin-left:auto;font-size:.6rem;color:var(--accent);cursor:pointer" onclick="event.stopPropagation();refreshDevices()">↻</span>
+    <span class="device-float-chevron">▼</span>
+  </div>
+  <div class="device-float-body">
+    <div id="device-cards"></div>
+    <button class="save-config-btn" style="background:var(--surface2);color:var(--accent);border:1px solid var(--accent);margin-bottom:6px" onclick="autoDetect()">🔍 Auto Detect</button>
+    <button class="save-config-btn" style="background:var(--surface2);color:#a78bfa;border:1px solid #a78bfa;margin-bottom:6px" onclick="openWirelessModal()">📡 Wireless Pair</button>
+    <button class="save-config-btn" onclick="saveConfig()">💾 Save config.py</button>
   </div>
 </div>
 
@@ -705,6 +980,20 @@ HTML = r"""<!DOCTYPE html>
   </div>
 </div>
 
+<!-- History modal -->
+<div class="modal-backdrop" id="history-modal" onclick="if(event.target===this)closeHistory()">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-header">
+      <h2>📊 Run History</h2>
+      <button class="btn btn-danger" style="padding:5px 12px;font-size:.75rem;margin-left:auto" onclick="clearHistory()">🗑 Clear</button>
+      <button class="btn btn-ghost" style="padding:5px 12px;font-size:.78rem" onclick="closeHistory()">✕</button>
+    </div>
+    <div class="modal-body" id="history-body">
+      <div class="tpl-empty">Loading…</div>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -712,6 +1001,28 @@ const ACTIONS = {{ actions|tojson }};
 let PHONES = {{ phones|tojson }};
 let PHONE_NUMBERS = {{ phone_numbers|tojson }};
 let DEVICES_MAP = {{ devices_map|tojson }};
+let NETWORK_OPTIONS = {};  // populated once on startup: {Phone1: ["LTE/3G/2G", ...], ...}
+
+// ── Data package list — fetched from API on startup ───────────────────────────
+let DP_PACKAGES = [];
+let dpPackagesLoading = false;
+
+async function fetchPackageList() {
+  dpPackagesLoading = true;
+  render();
+  try {
+    const res = await fetch('/api/package_list');
+    const d = await res.json();
+    DP_PACKAGES = Array.isArray(d.packages) ? d.packages : [];
+    if (!DP_PACKAGES.length && d.error) console.warn('Package list error:', d.error);
+  } catch(e) {
+    DP_PACKAGES = [];
+  }
+  dpPackagesLoading = false;
+  render();
+}
+let networkOptionsLoading = false;
+let devicesLoading = false;
 
 let steps = [];
 let dragSrc = null;      // palette card action id
@@ -721,34 +1032,75 @@ let stepCounter = 0;
 
 // ── Device panel ──────────────────────────────────────────────────────────────
 async function refreshDevices() {
-  const res = await fetch('/config');
-  const d = await res.json();
-  PHONES = Object.keys(d.devices);
-  PHONE_NUMBERS = d.phone_numbers;
-  DEVICES_MAP = d.devices;
-  buildDeviceCards(d);
+  devicesLoading = true;
+  document.getElementById('device-cards').innerHTML =
+    '<div style="display:flex;align-items:center;gap:8px;padding:10px 4px;color:var(--muted);font-size:.78rem">' +
+    '<span class="loading-spinner"></span><span>Detecting phones…</span></div>';
+  try {
+    const res = await fetch('/config');
+    const d = await res.json();
+    PHONES = Object.keys(d.devices);
+    PHONE_NUMBERS = d.phone_numbers;
+    DEVICES_MAP = d.devices;
+    devicesLoading = false;
+    buildDeviceCards(d);
+  } catch(e) {
+    devicesLoading = false;
+    buildDeviceCards({ devices: DEVICES_MAP, phone_numbers: PHONE_NUMBERS, online: [] });
+  }
 }
 
 function buildDeviceCards(d) {
   const el = document.getElementById('device-cards');
   el.innerHTML = '';
   Object.keys(d.devices).forEach(name => {
-    const serial  = d.devices[name] || '';
-    const number  = d.phone_numbers[name] || '';
-    const online  = (d.online || []).includes(serial);
-    el.innerHTML += `
-      <div class="device-card">
-        <div class="device-title">
-          <span class="dot ${online ? 'online' : ''}"></span>
-          <span>${name}</span>
-          <span style="font-size:.6rem;color:var(--muted);margin-left:auto">${online ? '🟢 connected' : '⚫ offline'}</span>
+    const serial = d.devices[name] || '';
+    const sim1   = d.phone_numbers[name + ' SIM1'] || '';
+    const sim2   = d.phone_numbers[name + ' SIM2'] || '';
+    const online = (d.online || []).includes(serial);
+    const card = document.createElement('div');
+    card.className = 'device-card';
+    card.innerHTML = `
+      <div class="device-title">
+        <span class="dot ${online ? 'online' : ''}"></span>
+        <span>${name}</span>
+        <span style="font-size:.6rem;color:var(--muted);margin-left:auto">${online ? '🟢 connected' : '⚫ offline'}</span>
+        <span style="font-size:.65rem;color:#f87171;cursor:pointer;margin-left:6px" title="Remove slot" onclick="removePhone('${name}')">✕</span>
+      </div>
+      <div class="device-label">Serial</div>
+      <input class="device-input" id="serial_${name}" value="${serial}" placeholder="device serial">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:3px">
+        <div>
+          <div class="device-label">SIM 1</div>
+          <input class="device-input" id="sim1_${name}" value="${sim1}" placeholder="+976...">
         </div>
-        <div class="device-label">Serial</div>
-        <input class="device-input" id="serial_${name}" value="${serial}" placeholder="device serial">
-        <div class="device-label">Phone Number</div>
-        <input class="device-input" id="number_${name}" value="${number}" placeholder="+976...">
+        <div>
+          <div class="device-label">SIM 2</div>
+          <input class="device-input" id="sim2_${name}" value="${sim2}" placeholder="+976...">
+        </div>
       </div>`;
+    el.appendChild(card);
   });
+}
+
+function addPhone() {
+  const next = 'Phone' + (PHONES.length + 1);
+  PHONES.push(next);
+  DEVICES_MAP[next] = '';
+  PHONE_NUMBERS[next + ' SIM1'] = '';
+  PHONE_NUMBERS[next + ' SIM2'] = '';
+  buildDeviceCards({ devices: DEVICES_MAP, phone_numbers: PHONE_NUMBERS, online: [] });
+  render();
+}
+
+function removePhone(name) {
+  if (PHONES.length <= 1) { toast('At least one phone slot required.', 'error'); return; }
+  PHONES = PHONES.filter(p => p !== name);
+  delete DEVICES_MAP[name];
+  delete PHONE_NUMBERS[name + ' SIM1'];
+  delete PHONE_NUMBERS[name + ' SIM2'];
+  buildDeviceCards({ devices: DEVICES_MAP, phone_numbers: PHONE_NUMBERS, online: [] });
+  render();
 }
 
 function openWirelessModal() {
@@ -837,39 +1189,27 @@ async function autoDetect() {
     row.appendChild(title);
     row.appendChild(serial);
 
-    // Assign dropdown + phone number input
-    const grid = document.createElement('div');
-    grid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:8px';
+    // Slot label + phone number input
+    const slotLabel = document.createElement('div');
+    slotLabel.style.cssText = 'font-size:.68rem;color:var(--accent);font-weight:600;margin-bottom:6px';
+    slotLabel.textContent = `→ Will be assigned as Phone${i + 1}`;
+    row.appendChild(slotLabel);
 
-    // Slot selector
-    const slotWrap = document.createElement('div');
-    slotWrap.innerHTML = '<div style="font-size:.65rem;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:3px">Assign to</div>';
-    const sel = document.createElement('select');
-    sel.id = `detect-slot-${i}`;
-    sel.style.cssText = 'width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 8px;font-size:.8rem;outline:none';
-    const optNone = document.createElement('option'); optNone.value = ''; optNone.textContent = '— skip —'; sel.appendChild(optNone);
-    PHONES.forEach((p, pi) => {
-      const opt = document.createElement('option');
-      opt.value = p; opt.textContent = p;
-      if (pi === i) opt.selected = true;
-      sel.appendChild(opt);
+    const simGrid = document.createElement('div');
+    simGrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:8px';
+    const autoNums = [dev.number1 || '', dev.number2 || ''];
+    ['SIM1','SIM2'].forEach((sim, si) => {
+      const w = document.createElement('div');
+      const autoLabel = autoNums[si] ? `<span style="color:#48bb78;font-size:.6rem;margin-left:4px">● auto</span>` : '';
+      w.innerHTML = `<div style="font-size:.65rem;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:3px">${sim}${autoLabel}</div>`;
+      const inp = document.createElement('input');
+      inp.id = `detect-${sim.toLowerCase()}-${i}`;
+      inp.type = 'text'; inp.placeholder = '+976…';
+      inp.value = autoNums[si];
+      inp.style.cssText = 'width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 8px;font-size:.8rem;outline:none';
+      w.appendChild(inp); simGrid.appendChild(w);
     });
-    slotWrap.appendChild(sel);
-
-    // Phone number
-    const numWrap = document.createElement('div');
-    numWrap.innerHTML = '<div style="font-size:.65rem;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:3px">Phone Number</div>';
-    const numInp = document.createElement('input');
-    numInp.id = `detect-num-${i}`;
-    numInp.type = 'text';
-    numInp.placeholder = '+976…';
-    numInp.value = dev.number || '';
-    numInp.style.cssText = 'width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 8px;font-size:.8rem;outline:none';
-    numWrap.appendChild(numInp);
-
-    grid.appendChild(slotWrap);
-    grid.appendChild(numWrap);
-    row.appendChild(grid);
+    row.appendChild(simGrid);
     body.appendChild(row);
   });
 
@@ -885,33 +1225,33 @@ async function autoDetect() {
 }
 
 function applyDetect(devices) {
-  let assigned = 0;
+  // Auto-assign Phone1…PhoneN, replacing current slots entirely
+  const newPhones = {}, newSerials = {};
   devices.forEach((dev, i) => {
-    const slot   = document.getElementById(`detect-slot-${i}`)?.value;
-    const number = document.getElementById(`detect-num-${i}`)?.value.trim();
-    if (!slot) return;
-
-    // Update sidebar input fields
-    const sEl = document.getElementById('serial_' + slot);
-    const nEl = document.getElementById('number_' + slot);
-    if (sEl) sEl.value = dev.serial;
-    if (nEl && number) nEl.value = number;
-
-    // Update in-memory
-    DEVICES_MAP[slot]    = dev.serial;
-    if (number) PHONE_NUMBERS[slot] = number;
-    assigned++;
+    const slot = `Phone${i + 1}`;
+    const sim1 = document.getElementById(`detect-sim1-${i}`)?.value.trim() || '';
+    const sim2 = document.getElementById(`detect-sim2-${i}`)?.value.trim() || '';
+    newSerials[slot]          = dev.serial;
+    newPhones[slot + ' SIM1'] = sim1;
+    newPhones[slot + ' SIM2'] = sim2;
   });
 
+  PHONES        = Object.keys(newSerials);
+  DEVICES_MAP   = newSerials;
+  PHONE_NUMBERS = newPhones;
+
+  buildDeviceCards({ devices: DEVICES_MAP, phone_numbers: PHONE_NUMBERS, online: [] });
+  render();
   closeDetectModal();
-  toast(`${assigned} device(s) assigned. Click 💾 Save to config.py to persist.`, 'success');
+  toast(`${PHONES.length} phone(s) assigned as ${PHONES.join(', ')}. Click 💾 Save to config.py to persist.`, 'success');
 }
 
 async function saveConfig() {
   const phones = {}, serials = {};
   PHONES.forEach(name => {
     serials[name] = document.getElementById('serial_' + name)?.value || DEVICES_MAP[name] || '';
-    phones[name]  = document.getElementById('number_' + name)?.value || PHONE_NUMBERS[name] || '';
+    phones[name + ' SIM1'] = document.getElementById('sim1_' + name)?.value.trim() || PHONE_NUMBERS[name + ' SIM1'] || '';
+    phones[name + ' SIM2'] = document.getElementById('sim2_' + name)?.value.trim() || PHONE_NUMBERS[name + ' SIM2'] || '';
   });
   const res = await fetch('/config', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ phone_numbers: phones, devices: serials }) });
   if (res.ok) {
@@ -929,6 +1269,7 @@ const PALETTE_GROUPS = [
   { label: '📶 Network', ids: ['SET_NETWORK','AIRPLANE_MODE','SET_APN','USSD','SET_VOLTE','CHECK_WIFI_CALLING','SET_WIFI_CALLING','CHECK_NETWORK'] },
   { label: '🌐 Apps',   ids: ['OPEN_BROWSER','SPEEDTEST','DOWNLOAD_FILE'] },
   { label: '⚙️ Device', ids: ['WAKE','WAIT','SET_CONFIG','GET_CONFIG'] },
+  { label: '📦 Data Package', ids: ['DP_CREATE','DP_MODIFY','DP_CHECK'] },
 ];
 
 function buildPalette() {
@@ -962,18 +1303,32 @@ function buildPalette() {
   });
 
   refreshDevices();
+  fetchPackageList();
 }
 
 // ── Step data ─────────────────────────────────────────────────────────────────
 function newStep(actionId) {
   const a = ACTIONS.find(x => x.id === actionId);
   const def = a.default || {};
+  const defaultTarget = PHONES[0] || 'Phone1';
+  const isDP = actionId.startsWith('DP_');
+  let defaultNumber = def.number ?? (a.id === 'WAIT' ? '5' : '');
+  if (['CALL', 'CHECK_CALL', 'ANSWER_CALL', 'SMS', 'CHECK_SMS'].includes(actionId) && !defaultNumber) {
+    const otherSlots = Object.keys(PHONE_NUMBERS)
+      .filter(k => !k.startsWith(defaultTarget) && PHONE_NUMBERS[k]);
+    defaultNumber = otherSlots[0] || getOtherPhoneNumber(defaultTarget);
+  }
+  if (isDP && !defaultNumber) {
+    const simSlots = Object.keys(PHONE_NUMBERS).filter(k => PHONE_NUMBERS[k]);
+    defaultNumber = simSlots[0] || (PHONES[0] ? PHONES[0] + ' SIM1' : 'Phone1 SIM1');
+  }
   return {
     id: stepCounter++,
     action: actionId,
-    target: PHONES[0] || 'Phone1',
-    number: def.number ?? (a.id === 'WAIT' ? '5' : ''),
+    target: defaultTarget,
+    number: defaultNumber,
     value: def.value ?? '',
+    value2: '',
     expected: def.expected ?? '',
     _isSection: false,
   };
@@ -1029,6 +1384,12 @@ function render() {
       inp.addEventListener('input', e => { steps[idx].label = e.target.value; renderPreview(); });
       inp.addEventListener('click', e => e.stopPropagation());
 
+      const sav = document.createElement('button');
+      sav.className = 'step-btn';
+      sav.title = 'Save section to library';
+      sav.textContent = '💾';
+      sav.addEventListener('click', e => { e.stopPropagation(); saveSection(idx); });
+
       const dup = document.createElement('button');
       dup.className = 'step-btn';
       dup.title = 'Duplicate section';
@@ -1044,6 +1405,7 @@ function render() {
       row.appendChild(arrow);
       row.appendChild(tag);
       row.appendChild(inp);
+      row.appendChild(sav);
       row.appendChild(dup);
       row.appendChild(del);
       list.appendChild(row);
@@ -1093,18 +1455,59 @@ function render() {
     fields.className = 'step-fields';
 
     if (a.fields.includes('target')) {
-      const freeTargetActions = ['CALL', 'ANSWER_CALL'];
-      if (freeTargetActions.includes(s.action)) {
-        fields.appendChild(makeInput(idx, 'target', 'Target Phone', 'e.g. Phone1'));
+      if (['CALL','CHECK_CALL','ANSWER_CALL','SMS','CHECK_SMS'].includes(s.action)) {
+        fields.appendChild(makeSelectPhone(idx));
+      } else if (s.action === 'SET_NETWORK') {
+        fields.appendChild(makeSelect(idx, 'target', 'Target Phone', PHONES, () => render()));
       } else {
         fields.appendChild(makeSelect(idx, 'target', 'Target Phone', PHONES));
       }
     }
     if (a.fields.includes('number')) {
-      fields.appendChild(makeInput(idx, 'number', 'Number / Code', a.hints.number || ''));
+      if (s.action === 'SET_NETWORK') {
+        if (networkOptionsLoading && !NETWORK_OPTIONS[s.target]) {
+          const g = document.createElement('div');
+          g.className = 'field-group';
+          const lb = document.createElement('label'); lb.textContent = 'Network Type';
+          const ld = document.createElement('div'); ld.className = 'field-loading';
+          ld.innerHTML = '<span class="loading-spinner"></span><span>Fetching from phone…</span>';
+          g.appendChild(lb); g.appendChild(ld);
+          fields.appendChild(g);
+        } else {
+          fields.appendChild(makeSelectFixed(idx, 'number', 'Network Type', getNetworkOptions(s.target)));
+        }
+      } else if (s.action.startsWith('DP_')) {
+        const simSlots = Object.keys(PHONE_NUMBERS).filter(k => PHONE_NUMBERS[k]);
+        fields.appendChild(makeComboInput(idx, 'number', 'Subscriber SIM', simSlots.length ? simSlots : PHONES));
+      } else if (['CALL','CHECK_CALL','ANSWER_CALL','SMS','CHECK_SMS'].includes(s.action)) {
+        const otherSlots = Object.keys(PHONE_NUMBERS)
+          .filter(k => !k.startsWith(s.target) && PHONE_NUMBERS[k]);
+        fields.appendChild(makeComboInput(idx, 'number', 'Number', otherSlots.length ? otherSlots : Object.keys(PHONE_NUMBERS)));
+      } else {
+        fields.appendChild(makeInput(idx, 'number', 'Number / Code', a.hints.number || ''));
+      }
     }
     if (a.fields.includes('value')) {
-      fields.appendChild(makeInput(idx, 'value', 'Value', a.hints.value || '', a.id === 'SMS'));
+      if (['SET_VOLTE', 'AIRPLANE_MODE', 'SET_WIFI_CALLING'].includes(s.action)) {
+        fields.appendChild(makeToggle(idx, 'value', 'Value'));
+      } else if (s.action === 'DP_CREATE') {
+        if (dpPackagesLoading) {
+          const g = document.createElement('div'); g.className = 'field-group';
+          const lb = document.createElement('label'); lb.textContent = 'Package';
+          const ld = document.createElement('div'); ld.className = 'field-loading';
+          ld.innerHTML = '<span class="loading-spinner"></span><span>Loading packages…</span>';
+          g.appendChild(lb); g.appendChild(ld); fields.appendChild(g);
+        } else {
+          fields.appendChild(makeSearchableSelect(idx, 'value', 'Package', DP_PACKAGES));
+        }
+      } else if (['DP_DELETE'].includes(s.action)) {
+        fields.appendChild(makeInputReadonly(idx, 'value', 'Package Code'));
+      } else {
+        fields.appendChild(makeInput(idx, 'value', 'Value', a.hints.value || '', a.id === 'SMS'));
+      }
+    }
+    if (a.fields.includes('value2')) {
+      fields.appendChild(makeInput(idx, 'value2', 'New Value / Params', a.hints.value2 || ''));
     }
     if (a.fields.includes('expected')) {
       fields.appendChild(makeInput(idx, 'expected', 'Expected Result', a.hints.expected || ''));
@@ -1145,13 +1548,22 @@ function renderPreview() {
     stepNum++;
     const a = ACTIONS.find(x => x.id === s.action) || { color: '#555' };
     const pill = `<span class="action-pill" style="background:${a.color}">${esc(s.action)}</span>`;
-    const num  = s.number  ? `<code style="font-size:.7rem;opacity:.9">${esc(s.number)}</code>`  : '<span style="color:var(--muted)">—</span>';
+    // Target: show phone name + SIM1 number
+    const tgtNum = PHONE_NUMBERS[s.target + ' SIM1'] || PHONE_NUMBERS[s.target + ' SIM2'] || '';
+    const tgtCell = s.target
+      ? esc(s.target) + (tgtNum ? `<br><span style="font-size:.65rem;color:var(--muted)">${esc(tgtNum)}</span>` : '')
+      : '<span style="color:var(--muted)">—</span>';
+    // Number: show slot key + resolved number below
+    const numResolved = PHONE_NUMBERS[s.number] || '';
+    const num = s.number
+      ? `<code style="font-size:.7rem">${esc(s.number)}</code>` + (numResolved ? `<br><span style="font-size:.65rem;color:var(--muted)">${esc(numResolved)}</span>` : '')
+      : '<span style="color:var(--muted)">—</span>';
     const val  = s.value   ? esc(s.value)   : '<span style="color:var(--muted)">—</span>';
     const exp  = s.expected ? esc(s.expected) : '<span style="color:var(--muted)">—</span>';
     html += `<tr>
       <td class="step-num-cell">${stepNum}</td>
       <td>${pill}</td>
-      <td>${esc(s.target || '')}</td>
+      <td>${tgtCell}</td>
       <td>${num}</td>
       <td>${val}</td>
       <td>${exp}</td>
@@ -1162,7 +1574,56 @@ function renderPreview() {
   el.innerHTML = html;
 }
 
-function makeSelect(idx, field, label, options) {
+function makeComboInput(idx, field, label, options) {
+  const g = document.createElement('div');
+  g.className = 'field-group';
+  const lb = document.createElement('label'); lb.textContent = label;
+  const listId = `combo_${idx}_${field}`;
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:4px;align-items:center';
+  const inp = document.createElement('input');
+  inp.type = 'text';
+  inp.setAttribute('list', listId);
+  inp.value = steps[idx][field] || '';
+  inp.placeholder = 'Select or type…';
+  inp.style.flex = '1';
+  inp.addEventListener('input', e => { steps[idx][field] = e.target.value; });
+  const clr = document.createElement('button');
+  clr.type = 'button'; clr.className = 'step-btn'; clr.textContent = '✕'; clr.title = 'Clear';
+  clr.addEventListener('click', () => { steps[idx][field] = ''; inp.value = ''; });
+  const dl = document.createElement('datalist');
+  dl.id = listId;
+  options.forEach(o => {
+    const num = PHONE_NUMBERS[o];
+    const opt = document.createElement('option');
+    if (num) {
+      opt.value = num;  // actual MSISDN shown in input
+      opt.label = o;    // SIM slot shown as hint in dropdown
+    } else {
+      opt.value = o;
+    }
+    dl.appendChild(opt);
+  });
+  row.appendChild(inp); row.appendChild(clr); row.appendChild(dl);
+  g.appendChild(lb); g.appendChild(row);
+  return g;
+}
+
+function makeInputReadonly(idx, field, label) {
+  const g = document.createElement('div');
+  g.className = 'field-group';
+  const lb = document.createElement('label');
+  lb.textContent = label;
+  const inp = document.createElement('input');
+  inp.value = steps[idx][field] || '';
+  inp.disabled = true;
+  inp.style.cssText = 'opacity:.4;cursor:not-allowed;';
+  inp.title = 'Auto-filled from Select Package result';
+  g.appendChild(lb); g.appendChild(inp);
+  return g;
+}
+
+function makeSelect(idx, field, label, options, onChangeCb = null) {
   const g = document.createElement('div');
   g.className = 'field-group';
   const lb = document.createElement('label');
@@ -1175,7 +1636,192 @@ function makeSelect(idx, field, label, options) {
     if (steps[idx][field] === o) opt.selected = true;
     sel.appendChild(opt);
   });
-  sel.addEventListener('change', e => { steps[idx][field] = e.target.value; });
+  sel.addEventListener('change', e => { steps[idx][field] = e.target.value; if (onChangeCb) onChangeCb(); });
+  g.appendChild(lb); g.appendChild(sel);
+  return g;
+}
+
+function makeSelectFixed(idx, field, label, options) {
+  const g = document.createElement('div');
+  g.className = 'field-group';
+  const lb = document.createElement('label');
+  lb.textContent = label;
+  const sel = document.createElement('select');
+  let matched = false;
+  options.forEach(o => {
+    const opt = document.createElement('option');
+    opt.value = o;
+    opt.textContent = o;
+    if ((steps[idx][field] || '').toLowerCase() === o.toLowerCase()) { opt.selected = true; matched = true; }
+    sel.appendChild(opt);
+  });
+  if (!matched && options.length) steps[idx][field] = options[0];
+  sel.addEventListener('change', e => { steps[idx][field] = e.target.value; renderPreview(); });
+  g.appendChild(lb); g.appendChild(sel);
+  return g;
+}
+
+function makeSearchableSelect(idx, field, label, options) {
+  const g = document.createElement('div');
+  g.className = 'field-group';
+  const lb = document.createElement('label');
+  lb.textContent = label;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'searchable-wrap';
+
+  const inp = document.createElement('input');
+  inp.value = steps[idx][field] || '';
+  inp.placeholder = 'Search package…';
+  inp.autocomplete = 'off';
+
+  const drop = document.createElement('div');
+  drop.className = 'searchable-dropdown';
+
+  function buildList(filter) {
+    drop.innerHTML = '';
+    const f = (filter || '').toLowerCase();
+    const filtered = options.filter(o => !f || o.toLowerCase().includes(f));
+    if (!filtered.length) { drop.classList.remove('open'); return; }
+    filtered.forEach(o => {
+      const item = document.createElement('div');
+      item.className = 'searchable-option';
+      item.textContent = o;
+      if (o === steps[idx][field]) item.classList.add('focused');
+      item.addEventListener('mousedown', e => {
+        e.preventDefault();
+        steps[idx][field] = o;
+        inp.value = o;
+        drop.classList.remove('open');
+        renderPreview();
+      });
+      drop.appendChild(item);
+    });
+    drop.classList.add('open');
+  }
+
+  inp.addEventListener('focus', () => buildList(''));
+  inp.addEventListener('input', () => { steps[idx][field] = inp.value; buildList(inp.value); renderPreview(); });
+  inp.addEventListener('blur', () => setTimeout(() => drop.classList.remove('open'), 160));
+
+  inp.addEventListener('keydown', e => {
+    const items = [...drop.querySelectorAll('.searchable-option')];
+    let cur = items.findIndex(i => i.classList.contains('focused'));
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (cur >= 0) items[cur].classList.remove('focused');
+      cur = Math.min(cur + 1, items.length - 1);
+      if (cur < 0) cur = 0;
+      items[cur]?.classList.add('focused');
+      items[cur]?.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (cur >= 0) items[cur].classList.remove('focused');
+      cur = Math.max(cur - 1, 0);
+      items[cur]?.classList.add('focused');
+      items[cur]?.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter') {
+      const focused = drop.querySelector('.searchable-option.focused');
+      if (focused) focused.dispatchEvent(new MouseEvent('mousedown'));
+    } else if (e.key === 'Escape') {
+      drop.classList.remove('open');
+    }
+  });
+
+  wrap.appendChild(inp);
+  wrap.appendChild(drop);
+  g.appendChild(lb);
+  g.appendChild(wrap);
+  return g;
+}
+
+function makeToggle(idx, field, label) {
+  const g = document.createElement('div');
+  g.className = 'field-group';
+  const lb = document.createElement('label');
+  lb.textContent = label;
+
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:4px';
+
+  const wrap = document.createElement('label');
+  wrap.className = 'toggle-wrap';
+
+  const cb = document.createElement('input');
+  cb.type = 'checkbox';
+  const curVal = (steps[idx][field] || 'on').toLowerCase();
+  cb.checked = curVal === 'on' || curVal.startsWith('on:');
+
+  const slider = document.createElement('span');
+  slider.className = 'toggle-slider';
+
+  const stateLabel = document.createElement('span');
+  stateLabel.className = 'toggle-state';
+  stateLabel.textContent = cb.checked ? 'ON' : 'OFF';
+  stateLabel.style.color = cb.checked ? 'var(--success)' : 'var(--muted)';
+
+  cb.addEventListener('change', e => {
+    steps[idx][field] = e.target.checked ? 'on' : 'off';
+    stateLabel.textContent = e.target.checked ? 'ON' : 'OFF';
+    stateLabel.style.color = e.target.checked ? 'var(--success)' : 'var(--muted)';
+    renderPreview();
+  });
+
+  wrap.appendChild(cb);
+  wrap.appendChild(slider);
+  row.appendChild(wrap);
+  row.appendChild(stateLabel);
+  g.appendChild(lb);
+  g.appendChild(row);
+  return g;
+}
+
+function getOtherPhoneNumber(targetName) {
+  const others = PHONES.filter(p => p !== targetName);
+  if (!others.length) return '';
+  return PHONE_NUMBERS[others[0] + ' SIM1'] || PHONE_NUMBERS[others[0] + ' SIM2'] || '';
+}
+
+function getNetworkOptions(targetPhone) {
+  return NETWORK_OPTIONS[targetPhone] || ['2G', '3G', '4G', '5G', '4G5G', 'AUTO'];
+}
+
+async function fetchNetworkOptions() {
+  networkOptionsLoading = true;
+  render();
+  try {
+    const res = await fetch('/api/network_options');
+    if (res.ok) {
+      const data = await res.json();
+      if (Object.keys(data).length > 0) NETWORK_OPTIONS = data;
+    }
+  } catch (e) {}
+  networkOptionsLoading = false;
+  render();
+}
+
+function makeSelectPhone(idx) {
+  const g = document.createElement('div');
+  g.className = 'field-group';
+  const lb = document.createElement('label');
+  lb.textContent = 'Target Phone';
+  const sel = document.createElement('select');
+  PHONES.forEach(o => {
+    const opt = document.createElement('option');
+    opt.value = o;
+    const num = PHONE_NUMBERS[o + ' SIM1'] || PHONE_NUMBERS[o + ' SIM2'] || '';
+    opt.textContent = num ? `${o}  (${num})` : o;
+    if (steps[idx].target === o) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  sel.addEventListener('change', e => {
+    steps[idx].target = e.target.value;
+    // Auto-select first available SIM of other phone as default number
+    const otherSlots = Object.keys(PHONE_NUMBERS)
+      .filter(k => !k.startsWith(e.target.value) && PHONE_NUMBERS[k]);
+    if (otherSlots.length) steps[idx].number = otherSlots[0];
+    render();
+  });
   g.appendChild(lb); g.appendChild(sel);
   return g;
 }
@@ -1187,6 +1833,7 @@ function makeInput(idx, field, label, placeholder, wide = false) {
   lb.textContent = label;
   const inp = document.createElement('input');
   inp.type = 'text'; inp.placeholder = placeholder; inp.value = steps[idx][field] || '';
+  inp.dataset.field = field;
   inp.addEventListener('input', e => { steps[idx][field] = e.target.value; });
   g.appendChild(lb); g.appendChild(inp);
   return g;
@@ -1254,34 +1901,27 @@ async function exportExcel() {
   } catch(e) { toast('Export error: ' + e.message, 'error'); }
 }
 
-// ── Load template ─────────────────────────────────────────────────────────────
 // ── Template manager ─────────────────────────────────────────────────────────
-const TPL_KEY = 'phone_test_templates';
-
-function _loadTpls() {
-  try { return JSON.parse(localStorage.getItem(TPL_KEY) || '[]'); } catch { return []; }
-}
-function _saveTpls(list) {
-  localStorage.setItem(TPL_KEY, JSON.stringify(list));
-}
-
-function openTemplateManager() {
-  renderTplList();
+async function openTemplateManager() {
   document.getElementById('tpl-name-input').value = '';
   document.getElementById('tpl-modal').classList.add('open');
+  document.getElementById('tpl-list').innerHTML = '<div class="tpl-empty">Loading…</div>';
+  try {
+    const res = await fetch('/api/templates');
+    const data = await res.json();
+    renderTplList(data.templates || []);
+  } catch(e) {
+    document.getElementById('tpl-list').innerHTML = '<div class="tpl-empty">Failed to load templates.</div>';
+  }
 }
+
 function closeTplModal() {
   document.getElementById('tpl-modal').classList.remove('open');
 }
 
-function renderTplList() {
+function renderTplList(tpls) {
   const list = document.getElementById('tpl-list');
-  const tpls = _loadTpls();
   list.innerHTML = '';
-
-  if (tpls.length === 0) {
-    list.innerHTML = '<div class="tpl-empty">No saved templates yet.<br>Build a workflow and save it below.</div>';
-  }
 
   // Built-in default
   const defBtn = document.createElement('div');
@@ -1300,7 +1940,11 @@ function renderTplList() {
   defBtn.appendChild(loadDef);
   list.appendChild(defBtn);
 
-  tpls.forEach((tpl, i) => {
+  if (tpls.length === 0) {
+    list.insertAdjacentHTML('beforeend', '<div class="tpl-empty">No saved templates yet.<br>Build a workflow and save it below.</div>');
+  }
+
+  tpls.forEach(tpl => {
     const item = document.createElement('div');
     item.className = 'tpl-item';
     const stepCount = (tpl.steps || []).filter(s => !s._isSection).length;
@@ -1315,37 +1959,54 @@ function renderTplList() {
       render(); closeTplModal(); toast(`"${tpl.name}" loaded.`, 'success');
     });
 
+    const appendBtn = document.createElement('button');
+    appendBtn.className = 'btn btn-ghost'; appendBtn.style.cssText = 'padding:4px 10px;font-size:.75rem;color:#4ade80;border-color:#4ade80';
+    appendBtn.textContent = '+ Append';
+    appendBtn.addEventListener('click', () => {
+      steps.push(...(tpl.steps || []).map(s => ({ ...s, id: stepCounter++ })));
+      render(); closeTplModal(); toast(`"${tpl.name}" appended (${(tpl.steps||[]).length} steps).`, 'success');
+    });
+
     const delBtn = document.createElement('button');
     delBtn.className = 'btn btn-danger'; delBtn.style.cssText = 'padding:4px 8px;font-size:.75rem';
     delBtn.textContent = '✕';
-    delBtn.addEventListener('click', () => {
-      const updated = _loadTpls(); updated.splice(i, 1); _saveTpls(updated); renderTplList();
+    delBtn.addEventListener('click', async () => {
+      if (!confirm(`Delete template "${tpl.name}"?`)) return;
+      await fetch('/api/templates/' + encodeURIComponent(tpl.name), { method: 'DELETE' });
+      toast(`"${tpl.name}" deleted.`, 'success');
+      openTemplateManager();
     });
 
     item.appendChild(loadBtn);
+    item.appendChild(appendBtn);
     item.appendChild(delBtn);
     list.appendChild(item);
   });
 }
 
-function saveTpl() {
+async function saveTpl() {
   const name = document.getElementById('tpl-name-input').value.trim();
   if (!name) { toast('Enter a template name.', 'error'); return; }
   if (steps.length === 0) { toast('No steps to save.', 'error'); return; }
-  const tpls = _loadTpls();
-  const existing = tpls.findIndex(t => t.name === name);
-  const entry = { name, date: new Date().toLocaleDateString(), steps: JSON.parse(JSON.stringify(steps)) };
-  if (existing >= 0) { tpls[existing] = entry; } else { tpls.push(entry); }
-  _saveTpls(tpls);
-  renderTplList();
-  document.getElementById('tpl-name-input').value = '';
-  toast(`Template "${name}" saved.`, 'success');
+  const res = await fetch('/api/templates', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, steps: JSON.parse(JSON.stringify(steps)) }),
+  });
+  if (res.ok) {
+    document.getElementById('tpl-name-input').value = '';
+    toast(`Template "${name}" saved.`, 'success');
+    openTemplateManager();
+  } else {
+    toast('Failed to save template.', 'error');
+  }
 }
 
 // ── Run Test ──────────────────────────────────────────────────────────────────
 let _runActive = false;
 let _runAbort  = null;
 let _pass = 0, _fail = 0, _skip = 0, _total = 0;
+let _historyRuns = [];
 let _runLog    = [];   // {type, step, action, target, result, output, label}
 let _runTs     = '';
 
@@ -1375,6 +2036,7 @@ function stopRun() {
   _runActive = false;
   const btn = document.getElementById('run-btn');
   btn.textContent = '▶ Run Test'; btn.classList.remove('running');
+  stopDeviceMonitoring();
 }
 
 async function startRun() {
@@ -1384,6 +2046,7 @@ async function startRun() {
   _runTs = new Date().toLocaleString();
   const btn = document.getElementById('run-btn');
   btn.textContent = '■ Stop'; btn.classList.add('running');
+  startDeviceMonitoring();
 
   _runAbort = new AbortController();
   const log = document.getElementById('run-log');
@@ -1424,8 +2087,20 @@ function appendLogRow(ev, log) {
 
   if (ev.type === 'section') {
     row.className = 'log-section';
+    row.dataset.sectionLabel = ev.label || '';
     row.textContent = '▸ ' + (ev.label || '');
     log.appendChild(row); log.scrollTop = log.scrollHeight; return;
+  }
+
+  if (ev.type === 'section_result') {
+    const secRow = log.querySelector(`.log-section[data-section-label="${CSS.escape(ev.label || '')}"]`);
+    if (secRow) {
+      const badge = document.createElement('span');
+      badge.className = `log-section-result ${ev.result}`;
+      badge.textContent = ev.result === 'pass' ? 'PASS' : 'FAIL';
+      secRow.appendChild(badge);
+    }
+    return;
   }
 
   if (ev.type === 'done') {
@@ -1452,13 +2127,28 @@ function appendLogRow(ev, log) {
   else if (result === 'SKIP') _skip++;
   const badge = { PASS:'badge-pass', FAIL:'badge-fail', SKIP:'badge-skip', RUN:'badge-run' }[result] || 'badge-run';
   const a = ACTIONS.find(x => x.id === ev.action) || { color:'#555', icon:'' };
+
+  // Timing pills
+  let timingHtml = '';
+  if (ev.call_setup_ms != null)
+    timingHtml += `<span class="timing-pill">📞 ${(ev.call_setup_ms/1000).toFixed(1)}s setup</span>`;
+  if (ev.sms_rtt_ms != null)
+    timingHtml += `<span class="timing-pill">✉ ${(ev.sms_rtt_ms/1000).toFixed(1)}s RTT</span>`;
+  if (ev.duration_ms != null)
+    timingHtml += `<span class="timing-pill">⏱ ${(ev.duration_ms/1000).toFixed(1)}s</span>`;
+
+  // Screenshot link
+  const ssHtml = ev.screenshot
+    ? `<br><a class="screenshot-link" href="/screenshots/${ev.screenshot}" target="_blank">📷 View screenshot</a>`
+    : '';
+
   row.className = 'log-row';
   row.innerHTML = `
     <span class="log-step">${ev.step ?? ''}</span>
     <span class="log-action"><span class="action-pill" style="background:${a.color}">${a.icon} ${esc(ev.action||'')}</span></span>
     <span class="log-target">${esc(ev.target || '')}</span>
     <span class="log-badge ${badge}">${result}</span>
-    <span class="log-output">${esc((ev.output || '').slice(0,300))}</span>`;
+    <span class="log-output">${esc((ev.output || '').slice(0,300))}${timingHtml}${ssHtml}</span>`;
   log.appendChild(row);
   log.scrollTop = log.scrollHeight;
 
@@ -1555,6 +2245,226 @@ async function exportResults() {
   toast('Downloaded ✓', 'success');
 }
 
+// ── Saved sections dropdown ───────────────────────────────────────────────────
+function toggleSectionsMenu(e) {
+  e.stopPropagation();
+  const menu = document.getElementById('sec-menu');
+  const isOpen = menu.classList.toggle('open');
+  if (isOpen) loadSavedSections();
+}
+document.addEventListener('click', e => {
+  const dd = document.getElementById('sec-dropdown');
+  if (dd && !dd.contains(e.target)) {
+    document.getElementById('sec-menu').classList.remove('open');
+  }
+});
+
+async function saveSection(idx) {
+  const block = [steps[idx]];
+  for (let i = idx + 1; i < steps.length; i++) {
+    if (steps[i]._isSection) break;
+    block.push(steps[i]);
+  }
+  const label = steps[idx].label || 'Unnamed Section';
+  const name = prompt('Save section as:', label);
+  if (!name) return;
+
+  // Strip IDs before saving — they'll be regenerated on insert
+  const cleanSteps = block.map(s => {
+    const c = JSON.parse(JSON.stringify(s));
+    delete c.id;
+    return c;
+  });
+
+  const res = await fetch('/api/sections', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, label, steps: cleanSteps }),
+  });
+  if (res.ok) {
+    toast(`Section "${name}" saved to library.`, 'success');
+    loadSavedSections();
+  } else {
+    toast('Failed to save section.', 'error');
+  }
+}
+
+async function loadSavedSections() {
+  const el = document.getElementById('saved-sections-list');
+  try {
+    const res = await fetch('/api/sections');
+    const data = await res.json();
+    const list = data.sections || [];
+    if (!list.length) {
+      el.innerHTML = '<div style="font-size:.72rem;color:var(--muted)">No saved sections yet.</div>';
+      return;
+    }
+    el.innerHTML = list.map((sec, i) => `
+      <div class="saved-sec-card">
+        <span class="saved-sec-name" title="${esc(sec.name)}">${esc(sec.name)}</span>
+        <button class="saved-sec-btn" onclick="insertSavedSection(${i})">+ Insert</button>
+        <button class="saved-sec-btn" style="color:#fc8181" onclick="deleteSavedSection('${esc(sec.name)}')">✕</button>
+      </div>`).join('');
+    el._sections = list;
+  } catch(e) {
+    el.innerHTML = '<div style="font-size:.72rem;color:var(--muted)">Load failed.</div>';
+  }
+}
+
+function insertSavedSection(listIdx) {
+  const el = document.getElementById('saved-sections-list');
+  const list = el._sections || [];
+  const sec = list[listIdx];
+  if (!sec) return;
+
+  const copies = (sec.steps || []).map(s => {
+    const c = JSON.parse(JSON.stringify(s));
+    c.id = stepCounter++;
+    return c;
+  });
+  steps.push(...copies);
+  render();
+  document.getElementById('sec-menu').classList.remove('open');
+  toast(`Section "${sec.name}" inserted.`, 'success');
+}
+
+async function deleteSavedSection(name) {
+  if (!confirm(`Delete saved section "${name}"?`)) return;
+  const res = await fetch('/api/sections/' + encodeURIComponent(name), { method: 'DELETE' });
+  if (res.ok) { toast('Deleted.', 'success'); loadSavedSections(); }
+}
+
+// ── History ────────────────────────────────────────────────────────────────────
+async function openHistory() {
+  document.getElementById('history-modal').classList.add('open');
+  const body = document.getElementById('history-body');
+  body.innerHTML = '<div class="tpl-empty">Loading…</div>';
+  try {
+    const res = await fetch('/api/history');
+    const data = await res.json();
+    renderHistoryModal(data.runs || []);
+  } catch(e) {
+    body.innerHTML = '<div class="tpl-empty">Failed to load history.</div>';
+  }
+}
+
+function closeHistory() {
+  document.getElementById('history-modal').classList.remove('open');
+}
+
+async function clearHistory() {
+  if (!confirm('Clear all run history?')) return;
+  await fetch('/api/history', { method: 'DELETE' });
+  renderHistoryModal([]);
+  toast('History cleared.', 'success');
+}
+
+function renderHistoryModal(runs) {
+  const body = document.getElementById('history-body');
+  if (!runs.length) {
+    body.innerHTML = '<div class="tpl-empty">No run history yet. Run a test to start tracking.</div>';
+    return;
+  }
+
+  _historyRuns = runs;
+
+  // Trend sparkline — newest on the right, max 20 runs
+  const recent = runs.slice(0, 20).reverse();
+  const bars = recent.map(r => {
+    const pct = r.total ? Math.round(r.passed / r.total * 100) : 0;
+    const col  = pct === 100 ? '#48bb78' : pct >= 60 ? '#f6e05e' : '#fc8181';
+    const h    = Math.max(4, pct * 0.36);
+    const dt   = (r.ts || '').slice(0, 16).replace('T', ' ');
+    return `<div title="${pct}% — ${dt}" style="flex:1;height:${h}px;background:${col};border-radius:2px;align-self:flex-end"></div>`;
+  }).join('');
+
+  let html = `
+    <div style="margin-bottom:16px">
+      <div style="font-size:.72rem;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Pass rate — last ${recent.length} runs</div>
+      <div class="sparkline-bar">${bars}</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">`;
+
+  runs.forEach((r, i) => {
+    const pct    = r.total ? Math.round(r.passed / r.total * 100) : 0;
+    const pctCol = pct === 100 ? '#48bb78' : pct >= 60 ? '#f6e05e' : '#fc8181';
+    const dt     = (r.ts || '').slice(0, 16).replace('T', ' ');
+    html += `
+      <div class="history-card" onclick="toggleHistoryDetail(this)">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span style="font-size:.75rem;color:var(--muted);flex-shrink:0">${dt}</span>
+          <span style="font-size:.75rem">${r.total} steps</span>
+          <span style="margin-left:auto;font-size:.82rem;font-weight:700;color:${pctCol}">${pct}%</span>
+          <span style="font-size:.72rem;color:#48bb78">✓ ${r.passed}</span>
+          <span style="font-size:.72rem;color:#fc8181">✗ ${r.failed}</span>
+          <button onclick="exportHistoryRun(event,${i})" style="background:none;border:1px solid var(--border);border-radius:5px;color:var(--muted);cursor:pointer;font-size:.68rem;padding:2px 7px" title="Export this run to Excel">⬇ Excel</button>
+          <span style="font-size:.65rem;color:var(--muted)">▾</span>
+        </div>
+        <div class="history-detail" style="display:none;margin-top:10px">
+          ${renderHistorySteps(r.events || [])}
+        </div>
+      </div>`;
+  });
+  html += '</div>';
+  body.innerHTML = html;
+}
+
+function renderHistorySteps(events) {
+  let html = '<table style="width:100%;border-collapse:collapse;font-size:.72rem">';
+  let stepNum = 0;
+  for (const ev of events) {
+    if (ev.type === 'section') {
+      html += `<tr><td colspan="3" style="padding:5px 0 2px;color:var(--accent);font-weight:600">▸ ${esc(ev.label||'')}</td></tr>`;
+      continue;
+    }
+    if (ev.type !== 'step' || ev.result === 'run') continue;
+    stepNum++;
+    const r     = (ev.result || 'skip').toUpperCase();
+    const badge = { PASS:'badge-pass', FAIL:'badge-fail', SKIP:'badge-skip' }[r] || 'badge-skip';
+    let extra = '';
+    if (ev.call_setup_ms != null) extra += ` <span class="timing-pill">📞 ${(ev.call_setup_ms/1000).toFixed(1)}s</span>`;
+    if (ev.sms_rtt_ms  != null) extra += ` <span class="timing-pill">✉ ${(ev.sms_rtt_ms/1000).toFixed(1)}s</span>`;
+    if (ev.screenshot) extra += ` <a class="screenshot-link" href="/screenshots/${ev.screenshot}" target="_blank">📷</a>`;
+    html += `<tr>
+      <td style="color:var(--muted);width:24px;text-align:center;padding:2px">${ev.step ?? stepNum}</td>
+      <td style="padding:2px 4px">${esc(ev.action||'')} <span style="color:var(--muted)">${esc(ev.target||'')}</span>${extra}</td>
+      <td style="text-align:right;padding:2px"><span class="log-badge ${badge}" style="font-size:.62rem">${r}</span></td>
+    </tr>`;
+  }
+  html += '</table>';
+  return html;
+}
+
+function toggleHistoryDetail(card) {
+  const detail = card.querySelector('.history-detail');
+  if (detail) detail.style.display = detail.style.display === 'none' ? 'block' : 'none';
+}
+
+async function exportHistoryRun(e, idx) {
+  e.stopPropagation();
+  const r = _historyRuns[idx];
+  if (!r) return;
+  toast('Exporting…', '');
+  try {
+    const res = await fetch('/export_results', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ log: r.events || [], ts: r.ts || '' }),
+    });
+    if (!res.ok) { toast('Export failed', 'error'); return; }
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    const ts   = (r.ts || '').slice(0, 19).replace(/[T:]/g, '-');
+    a.href = url; a.download = `history_${ts}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('Downloaded ✓', 'success');
+  } catch(err) {
+    toast('Export error: ' + err.message, 'error');
+  }
+}
+
 // ── Toast ─────────────────────────────────────────────────────────────────────
 function toast(msg, type = '') {
   const t = document.getElementById('toast');
@@ -1564,10 +2474,149 @@ function toast(msg, type = '') {
 
 function esc(s) { return String(s).replace(/"/g,'&quot;'); }
 
+// ── Device float panel ────────────────────────────────────────────────────────
+function toggleDeviceFloat() {
+  document.getElementById('device-float').classList.toggle('collapsed');
+}
+
+// ── Device monitoring during test ─────────────────────────────────────────────
+let _devicePollTimer  = null;
+let _monitorPollTimer = null;
+
+function startDeviceMonitoring() {
+  document.getElementById('device-status-bar').style.display = 'flex';
+  const mc = document.getElementById('monitor-col');
+  if (mc) mc.classList.add('visible');
+  updateDeviceStatusBar();
+  updateMonitorCol();
+  _devicePollTimer  = setInterval(updateDeviceStatusBar, 2500);
+  _monitorPollTimer = setInterval(updateMonitorCol, 3000);
+}
+
+function stopDeviceMonitoring() {
+  if (_devicePollTimer)  { clearInterval(_devicePollTimer);  _devicePollTimer  = null; }
+  if (_monitorPollTimer) { clearInterval(_monitorPollTimer); _monitorPollTimer = null; }
+  document.getElementById('device-status-bar').style.display = 'none';
+  const mc = document.getElementById('monitor-col');
+  if (mc) mc.classList.remove('visible');
+}
+
+async function updateMonitorCol() {
+  try {
+    const res = await fetch('/api/phone_status');
+    if (!res.ok) return;
+    const data = await res.json();
+    const col = document.getElementById('monitor-col');
+    if (!col) return;
+    col.innerHTML = '';
+    PHONES.forEach(name => {
+      const d = data[name] || {};
+      const online     = !!d.online;
+      const callState  = d.call_state ?? 0;
+      const callLabel  = ['Idle', 'Ringing…', 'In Call'][callState] || '—';
+      const callCls    = ['', 'ringing', 'active'][callState] || '';
+      const net        = d.network || '—';
+      const bat        = d.battery != null ? d.battery + '%' + (d.charging ? ' ⚡' : '') : '—';
+      const sim1       = PHONE_NUMBERS[name + ' SIM1'] || '';
+      const sim2       = PHONE_NUMBERS[name + ' SIM2'] || '';
+      const nums       = [sim1, sim2].filter(Boolean).join(' / ');
+      const div = document.createElement('div');
+      div.className = 'mon-phone';
+      div.innerHTML = `
+        <div class="mon-phone-name">
+          <span class="dot ${online ? 'online' : ''}"></span>
+          <span>${esc(name)}</span>
+          ${nums ? `<span style="color:var(--muted);font-size:.63rem;font-weight:400">${esc(nums)}</span>` : ''}
+        </div>
+        ${online ? `
+          <div class="mon-row"><span class="mon-label">Network</span><span class="mon-val">${esc(net)}</span></div>
+          <div class="mon-row"><span class="mon-label">VoLTE</span><span class="mon-val ${d.volte ? 'on' : 'off'}">${d.volte ? 'ON' : 'OFF'}</span></div>
+          <div class="mon-row"><span class="mon-label">VoWiFi</span><span class="mon-val ${d.wifi_calling ? 'on' : 'off'}">${d.wifi_calling ? 'ON' : 'OFF'}</span></div>
+          <div class="mon-row"><span class="mon-label">Battery</span><span class="mon-val">${esc(bat)}</span></div>
+          <div class="mon-row"><span class="mon-label">Call</span><span class="mon-val ${callCls}">${esc(callLabel)}</span></div>
+        ` : '<div style="color:var(--muted);font-size:.68rem;padding:4px 0">Offline</div>'}
+      `;
+      col.appendChild(div);
+    });
+  } catch(e) {}
+}
+
+async function updateDeviceStatusBar() {
+  try {
+    const res = await fetch('/config');
+    const d = await res.json();
+    const bar = document.getElementById('device-status-bar');
+    bar.innerHTML = '<span style="color:var(--muted);margin-right:4px">Devices:</span>';
+    PHONES.forEach(name => {
+      const serial = d.devices[name] || '';
+      const online = (d.online || []).includes(serial);
+      const sim1   = d.phone_numbers[name + ' SIM1'] || '';
+      const sim2   = d.phone_numbers[name + ' SIM2'] || '';
+      const nums   = [sim1, sim2].filter(Boolean).join(' / ');
+      const chip   = document.createElement('span');
+      chip.className = 'dsb-chip';
+      chip.innerHTML = `<span class="dot ${online ? 'online' : ''}"></span>${name}${nums ? ' · ' + nums : ''}`;
+      bar.appendChild(chip);
+    });
+    // Update float header online count
+    const onlineCount = PHONES.filter(n => (d.online||[]).includes(d.devices[n]||'')).length;
+    const onlineEl = document.getElementById('device-float-online');
+    if (onlineEl) onlineEl.textContent = onlineCount ? `${onlineCount}/${PHONES.length} online` : '';
+  } catch(e) {}
+}
+
+// ── Silent auto-detect (startup) ──────────────────────────────────────────────
+async function applyDetectSilent(devices) {
+  const newPhones = {}, newSerials = {};
+  devices.forEach((dev, i) => {
+    const slot = `Phone${i + 1}`;
+    newSerials[slot]          = dev.serial;
+    newPhones[slot + ' SIM1'] = dev.number1 || PHONE_NUMBERS[slot + ' SIM1'] || '';
+    newPhones[slot + ' SIM2'] = dev.number2 || PHONE_NUMBERS[slot + ' SIM2'] || '';
+  });
+  PHONES        = Object.keys(newSerials);
+  DEVICES_MAP   = newSerials;
+  PHONE_NUMBERS = newPhones;
+  buildDeviceCards({ devices: DEVICES_MAP, phone_numbers: PHONE_NUMBERS, online: devices.map(d => d.serial) });
+  render();
+  await saveConfig();
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 buildPalette();
-buildDeviceCards({ devices: DEVICES_MAP, phone_numbers: PHONE_NUMBERS, online: [] });
 render();
+loadSavedSections();
+fetchNetworkOptions();
+
+(async () => {
+  const msg = document.getElementById('startup-msg');
+  const setMsg = t => { if (msg) msg.textContent = t; };
+
+  // Step 1: detect phones
+  setMsg('Detecting phones…');
+  try {
+    const res = await fetch('/detect');
+    const data = await res.json();
+    if (data.devices && data.devices.length > 0) {
+      setMsg(`Found ${data.devices.length} phone(s) — applying…`);
+      await applyDetectSilent(data.devices);
+    } else {
+      setMsg('No phones detected — loading saved config…');
+      await refreshDevices();
+    }
+  } catch(e) {
+    setMsg('Detection failed — loading saved config…');
+    await refreshDevices();
+  }
+
+  // Step 2: fetch network options from connected phone(s)
+  setMsg('Loading network options from phone…');
+  await fetchNetworkOptions();
+
+  const overlay = document.getElementById('startup-overlay');
+  if (overlay) overlay.style.display = 'none';
+  updateDeviceStatusBar();
+})();
 </script>
 </body>
 </html>
@@ -1912,6 +2961,7 @@ def run_test():
         "WAKE", "WAIT",
         "AIRPLANE_MODE", "OPEN_BROWSER", "SPEEDTEST", "SET_APN", "DOWNLOAD_FILE",
         "SET_VOLTE", "CHECK_WIFI_CALLING", "SET_WIFI_CALLING", "CHECK_NETWORK",
+        "DP_CREATE", "DP_DELETE", "DP_MODIFY", "DP_CHECK", "DP_SELECT",
     }
 
     def _resolve(target):
@@ -1920,8 +2970,9 @@ def run_test():
     def _run_step(s, step_num):
         action     = s.get("action", "").upper()
         target     = s.get("target", "")
-        number     = s.get("number", "")
+        number     = cfg.PHONE_NUMBERS.get(s.get("number", ""), s.get("number", ""))
         value      = s.get("value", "")
+        value2     = s.get("value2", "")
         expected   = s.get("expected", "")
         serial     = _resolve(target)
 
@@ -1934,6 +2985,28 @@ def run_test():
             secs = float(number) if number else 3.0
             time.sleep(secs)
             return {**base, "result": "pass", "output": f"Waited {secs}s"}
+
+        if action in ("DP_CREATE", "DP_DELETE", "DP_MODIFY", "DP_CHECK", "DP_SELECT"):
+            try:
+                import data_pkg_api as dp
+                msisdn = cfg.PHONE_NUMBERS.get(number, number)
+                if action == "DP_CREATE":
+                    ok, out = dp.create_package(msisdn=msisdn, params=value)
+                elif action == "DP_DELETE":
+                    ok, out = dp.delete_package(msisdn=msisdn, package_code=value)
+                elif action == "DP_MODIFY":
+                    ok, out = dp.modify_package(msisdn=msisdn, package_code=value, new_value=value2)
+                elif action == "DP_CHECK":
+                    ok, out = dp.check_package(msisdn=msisdn, package_code="")
+                else:
+                    ok, out = dp.select_package(msisdn=msisdn)
+            except Exception as exc:
+                ok, out = False, str(exc)
+            if ok and expected and expected.lower() not in out.lower():
+                result = "fail"
+            else:
+                result = "pass" if ok else "fail"
+            return {**base, "result": result, "output": out[:400]}
 
         if not serial:
             return {**base, "result": "fail", "output": f"No serial for '{target}'"}
@@ -2014,34 +3087,116 @@ def run_test():
         else:
             result = "pass" if ok else "fail"
 
-        return {**base, "result": result, "output": out[:400]}
+        ev = {**base, "result": result, "output": out[:400]}
+
+        if result == "fail" and serial:
+            try:
+                adb.wake_and_unlock(serial)
+                time.sleep(0.4)
+                ts_s = int(time.time())
+                fname = f"fail_step{step_num}_{action}_{ts_s}.png"
+                ok_sc, _ = adb.screenshot(serial, os.path.join(SCREENSHOTS_DIR, fname))
+                if ok_sc:
+                    ev["screenshot"] = fname
+                # SET_NETWORK leaves the dialog open on failure so we can screenshot it;
+                # close it now that the screenshot is taken
+                if action == "SET_NETWORK":
+                    adb.press_back(serial)
+            except Exception:
+                pass
+
+        return ev
 
     def generate():
         total = passed = failed = skipped = 0
         step_num = 0
+        _call_start = None
+        _sms_start  = None
+        all_events: list = []
+        run_ts = datetime.now().isoformat()
+
+        cur_sec_label: str | None = None
+        cur_sec_results: list     = []
+
+        def _flush_section():
+            nonlocal cur_sec_label, cur_sec_results
+            if cur_sec_label is None:
+                return None
+            sec_pass = bool(cur_sec_results) and all(r == "pass" for r in cur_sec_results)
+            ev = {"type": "section_result", "label": cur_sec_label,
+                  "result": "pass" if sec_pass else "fail"}
+            cur_sec_label   = None
+            cur_sec_results = []
+            return ev
+
         for s in steps:
             if s.get("_isSection"):
-                yield f"data: {json.dumps({'type':'section','label':s.get('label','')})}\n\n"
+                flush_ev = _flush_section()
+                if flush_ev:
+                    all_events.append(flush_ev)
+                    yield f"data: {json.dumps(flush_ev)}\n\n"
+                cur_sec_label   = s.get("label", "")
+                cur_sec_results = []
+                ev = {"type": "section", "label": cur_sec_label}
+                all_events.append(ev)
+                yield f"data: {json.dumps(ev)}\n\n"
                 continue
+
             step_num += 1
             total += 1
-            # emit "running" indicator first
-            yield f"data: {json.dumps({'type':'step','step':step_num,'action':s.get('action',''),'target':s.get('target',''),'result':'run','output':'running…'})}\n\n"
+            action = s.get("action", "").upper()
+
+            if action == "CALL":
+                _call_start = time.time()
+            elif action == "SMS":
+                _sms_start = time.time()
+
+            yield f"data: {json.dumps({'type':'step','step':step_num,'action':action,'target':s.get('target',''),'result':'run','output':'running…'})}\n\n"
+
+            t0 = time.time()
             ev = _run_step(s, step_num)
+            ev["duration_ms"] = int((time.time() - t0) * 1000)
+
+            if action == "ANSWER_CALL" and ev.get("result") == "pass" and _call_start is not None:
+                ev["call_setup_ms"] = int((time.time() - _call_start) * 1000)
+                _call_start = None
+            elif action == "CHECK_SMS" and ev.get("result") == "pass" and _sms_start is not None:
+                ev["sms_rtt_ms"] = int((time.time() - _sms_start) * 1000)
+                _sms_start = None
+
             r = ev.get("result", "skip")
             if r == "pass":   passed  += 1
             elif r == "fail": failed  += 1
             else:             skipped += 1
+            cur_sec_results.append(r)
+            all_events.append(ev)
             yield f"data: {json.dumps(ev)}\n\n"
 
-        # Send all devices back to home screen
-        for name, serial in cfg.DEVICES.items():
+        # Flush the last section
+        flush_ev = _flush_section()
+        if flush_ev:
+            all_events.append(flush_ev)
+            yield f"data: {json.dumps(flush_ev)}\n\n"
+
+        for serial in cfg.DEVICES.values():
             try:
                 adb.go_home(serial)
             except Exception:
                 pass
 
-        yield f"data: {json.dumps({'type':'done','total':total,'passed':passed,'failed':failed,'skipped':skipped})}\n\n"
+        done_ev = {"type": "done", "total": total, "passed": passed, "failed": failed, "skipped": skipped}
+        all_events.append(done_ev)
+        try:
+            _save_run({
+                "ts": run_ts,
+                "total": total, "passed": passed, "failed": failed, "skipped": skipped,
+                "steps": steps,
+                "events": all_events,
+            })
+        except Exception:
+            pass
+
+        yield f"data: {json.dumps(done_ev)}\n\n"
 
     return Response(
         stream_with_context(generate()),
@@ -2118,26 +3273,318 @@ def detect_devices():
     serials = adb.get_connected_devices()
     result = []
     for serial in serials:
-        # 1. Try reading from device via ADB
-        number = adb.get_device_phone_number(serial)
-        # 2. Exact serial match in config
-        if not number:
+        # 1. Try reading both SIM slots from device via ADB
+        num1, num2 = adb.get_device_phone_numbers(serial)
+        # 2. Fallback to saved config if ADB couldn't read them
+        if not num1 or not num2:
             slot = serial_to_slot.get(serial)
+            if not slot:
+                ip = _ip_of(serial)
+                if ip:
+                    slot = ip_to_slot.get(ip)
             if slot:
-                number = phone_numbers.get(slot, "")
-        # 3. IP-only match (port changes on every wireless reconnect)
-        if not number:
-            ip = _ip_of(serial)
-            if ip:
-                slot = ip_to_slot.get(ip)
-                if slot:
-                    number = phone_numbers.get(slot, "")
+                num1 = num1 or phone_numbers.get(slot + " SIM1", "")
+                num2 = num2 or phone_numbers.get(slot + " SIM2", "")
         model = adb.get_device_model(serial)
-        result.append({"serial": serial, "number": number, "model": model})
+        result.append({"serial": serial, "number1": num1, "number2": num2, "model": model})
     return jsonify({"devices": result})
+
+
+@app.route("/api/templates", methods=["GET"])
+def api_templates_get():
+    return jsonify({"templates": _load_templates()})
+
+
+@app.route("/api/templates", methods=["POST"])
+def api_templates_post():
+    data = request.get_json(force=True)
+    name = (data.get("name") or "").strip()
+    if not name:
+        return "name required", 400
+    templates = _load_templates()
+    templates = [t for t in templates if t.get("name") != name]
+    templates.append({
+        "name":  name,
+        "date":  datetime.now().strftime("%Y-%m-%d"),
+        "steps": data.get("steps", []),
+    })
+    _write_templates(templates)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/templates/<path:name>", methods=["DELETE"])
+def api_templates_delete(name):
+    templates = _load_templates()
+    templates = [t for t in templates if t.get("name") != name]
+    _write_templates(templates)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/sections", methods=["GET"])
+def api_sections_get():
+    return jsonify({"sections": _load_sections()})
+
+
+@app.route("/api/sections", methods=["POST"])
+def api_sections_post():
+    data  = request.get_json(force=True)
+    name  = (data.get("name") or "").strip()
+    if not name:
+        return "name required", 400
+    sections = _load_sections()
+    # Overwrite if same name exists
+    sections = [s for s in sections if s.get("name") != name]
+    sections.append({
+        "name":  name,
+        "label": data.get("label", name),
+        "steps": data.get("steps", []),
+    })
+    _write_sections(sections)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/sections/<path:name>", methods=["DELETE"])
+def api_sections_delete(name):
+    sections = _load_sections()
+    sections = [s for s in sections if s.get("name") != name]
+    _write_sections(sections)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/history", methods=["GET"])
+def api_history_get():
+    return jsonify({"runs": _load_history()})
+
+
+@app.route("/api/history", methods=["DELETE"])
+def api_history_delete():
+    try:
+        with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+            json.dump([], f)
+    except Exception:
+        pass
+    return jsonify({"ok": True})
+
+
+@app.route("/screenshots/<path:filename>")
+def serve_screenshot(filename):
+    """Serve a screenshot captured during a failed step."""
+    from flask import abort
+    safe = os.path.basename(filename)
+    path = os.path.join(SCREENSHOTS_DIR, safe)
+    if not os.path.isfile(path):
+        abort(404)
+    return send_file(path, mimetype="image/png")
+
+
+@app.route("/api/network_options")
+def api_network_options():
+    """Fetch available network-type options from each connected phone (runs in parallel)."""
+    import adb_controller as adb
+    result: dict = {}
+    lock = threading.Lock()
+
+    def _fetch(name: str, serial: str) -> None:
+        try:
+            opts = adb.get_network_options(serial)
+            if opts:
+                with lock:
+                    result[name] = opts
+        except Exception:
+            pass
+
+    threads = [threading.Thread(target=_fetch, args=(n, s), daemon=True)
+               for n, s in DEVICES_MAP.items()]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=20)
+    return jsonify(result)
+
+
+@app.route("/api/package_list")
+def api_package_list():
+    """Proxy POST request to package list API and return the list."""
+    import urllib.request
+    url = "http://10.10.55.84:8000/package_list"
+    try:
+        body = b""  # POST with empty body; add JSON payload here if the API requires it
+        req = urllib.request.Request(
+            url, data=body,
+            headers={"Accept": "application/json", "Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            raw = json.loads(resp.read().decode())
+        # Accept plain list or {"packages": [...]} / {"data": [...]} / {"list": [...]}
+        if isinstance(raw, list):
+            items = raw
+        elif isinstance(raw, dict):
+            items = (raw.get("packages") or raw.get("data") or
+                     raw.get("list") or (list(raw.values())[0] if raw else []))
+        else:
+            items = []
+        # If list contains dicts, extract ServiceName (or first string value found)
+        packages = []
+        for item in items:
+            if isinstance(item, str):
+                packages.append(item)
+            elif isinstance(item, dict):
+                name = (item.get("ServiceName") or item.get("serviceName") or
+                        item.get("name") or item.get("code") or
+                        next((v for v in item.values() if isinstance(v, str)), None))
+                if name:
+                    packages.append(name)
+        return jsonify({"packages": packages})
+    except Exception as exc:
+        return jsonify({"packages": [], "error": str(exc)}), 200
+
+
+@app.route("/api/phone_status")
+def api_phone_status():
+    """Return lightweight phone status (network, VoLTE, VoWiFi, call state, battery) for all devices."""
+    import threading
+    import adb_controller as adb
+    cfg_data = _load_config()
+    devices  = cfg_data.get("DEVICES", {})
+    results  = {}
+
+    def fetch(name, serial):
+        status = adb.get_device_status(serial)
+        if status.get("online"):
+            try:
+                status["call_state"] = adb._get_call_state(serial)
+            except Exception:
+                status["call_state"] = 0
+        else:
+            status["call_state"] = 0
+        results[name] = status
+
+    threads = [threading.Thread(target=fetch, args=(n, s), daemon=True) for n, s in devices.items()]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=15)
+
+    return jsonify(results)
+
+
+@app.route("/api/monitor")
+def api_monitor():
+    """Return live status for all configured devices."""
+    import adb_controller as adb
+    cfg_data = _load_config()
+    devices  = cfg_data.get("DEVICES", {})
+    results  = []
+    for name, serial in devices.items():
+        status = adb.get_device_status(serial)
+        status["name"] = name
+        results.append(status)
+    return jsonify({"devices": results})
+
+
+MONITOR_HTML = """<!DOCTYPE html>
+<html>
+<head>
+<title>Phone Monitor</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{--bg:#0f1117;--surface:#1a1d27;--surface2:#222636;--border:#2d3147;--text:#e2e8f0;--muted:#64748b;--accent:#818cf8}
+@media(prefers-color-scheme:light){:root{--bg:#f0f2f8;--surface:#fff;--surface2:#f4f6fb;--border:#d1d5e8;--text:#1e2035;--muted:#6b7280;--accent:#4f46e5}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;gap:12px}
+header h1{font-size:1rem;font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;padding:20px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;transition:border-color .2s}
+.card.online{border-color:#2d6a4f}
+.card-hdr{display:flex;align-items:center;gap:8px;margin-bottom:14px}
+.card-title{font-size:.95rem;font-weight:600}
+.dot{width:8px;height:8px;border-radius:50%;background:#4b5563;flex-shrink:0}
+.dot.on{background:#48bb78;box-shadow:0 0 6px #48bb78}
+.row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border);font-size:.8rem}
+.row:last-child{border-bottom:none}
+.lbl{color:var(--muted)}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:.68rem;font-weight:600}
+.b4g{background:#1d4ed8;color:#fff}.b5g{background:#7c3aed;color:#fff}
+.b3g{background:#0369a1;color:#fff}.b2g{background:#4b5563;color:#fff}
+.bunk{background:#374151;color:#9ca3af}
+.bat{display:inline-flex;align-items:center;gap:5px}
+.bat-bar{width:50px;height:7px;background:var(--surface2);border-radius:4px;overflow:hidden}
+.bat-fill{height:100%;border-radius:4px}
+.offline{color:var(--muted);font-size:.8rem;padding:6px 0}
+.footer{text-align:center;color:var(--muted);font-size:.7rem;padding:12px}
+</style>
+</head>
+<body>
+<header>
+  <a href="/" style="color:var(--accent);text-decoration:none;font-size:.8rem">&#8592; Builder</a>
+  <h1>&#128241; Phone Monitor</h1>
+  <span id="status" style="margin-left:auto;font-size:.72rem;color:var(--muted)">Connecting…</span>
+</header>
+<div class="grid" id="grid"><p style="padding:20px;color:var(--muted)">Loading…</p></div>
+<div class="footer" id="footer"></div>
+<script>
+function netBadge(net){
+  if(!net||net==='Unknown')return'<span class="badge bunk">Unknown</span>';
+  const n=net.toLowerCase();
+  const c=n.includes('5g')?'b5g':n.includes('lte')||n.includes('4g')?'b4g':n.includes('3g')?'b3g':'b2g';
+  return`<span class="badge ${c}">${net}</span>`;
+}
+function batBar(pct,ch){
+  const col=pct<=20?'#fc8181':pct<=50?'#f6e05e':'#48bb78';
+  return`<span class="bat"><span class="bat-bar"><span class="bat-fill" style="width:${pct}%;background:${col}"></span></span>${pct}%${ch?' &#9889;':''}</span>`;
+}
+function bool2(v){
+  if(v===undefined||v===null)return'<span style="color:var(--muted)">—</span>';
+  return v?'<span style="color:#48bb78;font-weight:600">ON</span>':'<span style="color:#fc8181">OFF</span>';
+}
+async function refresh(){
+  try{
+    const r=await fetch('/api/monitor');
+    const d=await r.json();
+    renderGrid(d.devices||[]);
+    document.getElementById('status').textContent='Auto-refresh 5s · '+new Date().toLocaleTimeString();
+    document.getElementById('footer').textContent='Last updated: '+new Date().toLocaleString();
+  }catch(e){
+    document.getElementById('status').textContent='Error: '+e.message;
+  }
+}
+function renderGrid(devs){
+  const g=document.getElementById('grid');
+  if(!devs.length){g.innerHTML='<p style="padding:20px;color:var(--muted)">No devices configured.</p>';return;}
+  g.innerHTML=devs.map(d=>{
+    const body=d.online?`
+      <div class="row"><span class="lbl">Network</span><span>${netBadge(d.network)}</span></div>
+      <div class="row"><span class="lbl">Operator</span><span>${d.operator||'—'}</span></div>
+      <div class="row"><span class="lbl">Signal</span><span>${d.signal_dbm!=null?d.signal_dbm+' dBm':'—'}</span></div>
+      <div class="row"><span class="lbl">Battery</span><span>${d.battery!=null?batBar(d.battery,d.charging):'—'}</span></div>
+      <div class="row"><span class="lbl">VoLTE</span><span>${bool2(d.volte)}</span></div>
+      <div class="row"><span class="lbl">WiFi Calling</span><span>${bool2(d.wifi_calling)}</span></div>
+      <div class="row"><span class="lbl">Model</span><span style="color:var(--muted);font-size:.72rem">${d.model||'—'}</span></div>
+    `:'<div class="offline">Device offline — not connected via ADB</div>';
+    return`<div class="card ${d.online?'online':''}">
+      <div class="card-hdr">
+        <div class="dot ${d.online?'on':''}"></div>
+        <div class="card-title">${d.name}</div>
+        <div style="margin-left:auto;font-size:.65rem;color:var(--muted)">${d.serial||''}</div>
+      </div>${body}</div>`;
+  }).join('');
+}
+refresh();
+setInterval(refresh,5000);
+</script>
+</body>
+</html>"""
+
+
+@app.route("/monitor")
+def monitor_page():
+    return MONITOR_HTML, 200, {"Content-Type": "text/html; charset=utf-8"}
 
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     print(f"Test Builder running at http://localhost:{port}")
-    app.run(host="0.0.0.0", port=port, debug=False)
+    app.run(host="0.0.0.0", port=port, debug=False, use_reloader=True)

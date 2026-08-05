@@ -1,0 +1,6942 @@
+[
+  {
+    "ts": "2026-08-04T09:08:16.925396",
+    "total": 8,
+    "passed": 8,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "id": 1,
+        "action": "CALL",
+        "target": "Phone2",
+        "number": "+97690560902",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 2,
+        "action": "ANSWER_CALL",
+        "target": "Phone3",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 4,
+        "action": "WAIT",
+        "target": "Phone1",
+        "number": "5",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 3,
+        "action": "END_CALL",
+        "target": "Phone2",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 5,
+        "action": "CALL",
+        "target": "Phone2",
+        "number": "+97694001105",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 6,
+        "action": "ANSWER_CALL",
+        "target": "Phone3",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 7,
+        "action": "WAIT",
+        "target": "Phone1",
+        "number": "5",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 8,
+        "action": "END_CALL",
+        "target": "Phone2",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      }
+    ],
+    "events": [
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CALL",
+        "target": "Phone2",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 2039
+      },
+      {
+        "type": "step",
+        "step": 2,
+        "action": "ANSWER_CALL",
+        "target": "Phone3",
+        "result": "pass",
+        "output": "Call answered (HEADSETHOOK)",
+        "duration_ms": 11811,
+        "call_setup_ms": 13853
+      },
+      {
+        "type": "step",
+        "step": 3,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5000
+      },
+      {
+        "type": "step",
+        "step": 4,
+        "action": "END_CALL",
+        "target": "Phone2",
+        "result": "pass",
+        "output": "Call ended via KEYCODE_ENDCALL",
+        "duration_ms": 1478
+      },
+      {
+        "type": "step",
+        "step": 5,
+        "action": "CALL",
+        "target": "Phone2",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 1912
+      },
+      {
+        "type": "step",
+        "step": 6,
+        "action": "ANSWER_CALL",
+        "target": "Phone3",
+        "result": "pass",
+        "output": "Call answered (HEADSETHOOK)",
+        "duration_ms": 11082,
+        "call_setup_ms": 12994
+      },
+      {
+        "type": "step",
+        "step": 7,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5000
+      },
+      {
+        "type": "step",
+        "step": 8,
+        "action": "END_CALL",
+        "target": "Phone2",
+        "result": "pass",
+        "output": "Call ended via KEYCODE_ENDCALL",
+        "duration_ms": 1258
+      },
+      {
+        "type": "done",
+        "total": 8,
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T18:22:48.622498",
+    "total": 8,
+    "passed": 8,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "id": 0,
+        "action": "CALL",
+        "target": "Phone2",
+        "number": "+97686682661",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 2,
+        "action": "ANSWER_CALL",
+        "target": "Phone1",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 3,
+        "action": "WAIT",
+        "target": "Phone1",
+        "number": "5",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 4,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 5,
+        "action": "CALL",
+        "target": "Phone2",
+        "number": "+97690560902",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 7,
+        "action": "ANSWER_CALL",
+        "target": "Phone3",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 8,
+        "action": "WAIT",
+        "target": "Phone1",
+        "number": "5",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 6,
+        "action": "END_CALL",
+        "target": "Phone3",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      }
+    ],
+    "events": [
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CALL",
+        "target": "Phone2",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 1959
+      },
+      {
+        "type": "step",
+        "step": 2,
+        "action": "ANSWER_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Call answered (HEADSETHOOK)",
+        "duration_ms": 6511,
+        "call_setup_ms": 8472
+      },
+      {
+        "type": "step",
+        "step": 3,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5000
+      },
+      {
+        "type": "step",
+        "step": 4,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Call ended via KEYCODE_ENDCALL",
+        "duration_ms": 1088
+      },
+      {
+        "type": "step",
+        "step": 5,
+        "action": "CALL",
+        "target": "Phone2",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 1925
+      },
+      {
+        "type": "step",
+        "step": 6,
+        "action": "ANSWER_CALL",
+        "target": "Phone3",
+        "result": "pass",
+        "output": "Call answered (HEADSETHOOK)",
+        "duration_ms": 8853,
+        "call_setup_ms": 10780
+      },
+      {
+        "type": "step",
+        "step": 7,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5000
+      },
+      {
+        "type": "step",
+        "step": 8,
+        "action": "END_CALL",
+        "target": "Phone3",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 4122
+      },
+      {
+        "type": "done",
+        "total": 8,
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T16:32:56.976942",
+    "total": 48,
+    "passed": 47,
+    "failed": 1,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": true,
+        "label": "MOC 3G to VoLTE",
+        "id": 10
+      },
+      {
+        "_isSection": false,
+        "action": "SET_VOLTE",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "off",
+        "value2": "",
+        "id": 11
+      },
+      {
+        "_isSection": false,
+        "action": "SET_VOLTE",
+        "expected": "",
+        "number": "",
+        "target": "Phone2",
+        "value": "on",
+        "value2": "",
+        "id": 12
+      },
+      {
+        "_isSection": false,
+        "action": "SET_NETWORK",
+        "expected": "",
+        "number": "3G preferred",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 13
+      },
+      {
+        "_isSection": false,
+        "action": "WAIT",
+        "expected": "",
+        "number": "5",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 14
+      },
+      {
+        "_isSection": false,
+        "action": "CALL",
+        "expected": "",
+        "number": "+97694001105",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 15
+      },
+      {
+        "_isSection": false,
+        "action": "ANSWER_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone2",
+        "value": "",
+        "value2": "",
+        "id": 16
+      },
+      {
+        "_isSection": false,
+        "action": "WAIT",
+        "expected": "",
+        "number": "5",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 17
+      },
+      {
+        "_isSection": false,
+        "action": "END_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 18
+      },
+      {
+        "_isSection": false,
+        "action": "CHECK_CALL",
+        "expected": "",
+        "number": "+97694001105",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 19
+      },
+      {
+        "_isSection": true,
+        "collapsed": true,
+        "label": "CSFB MOC",
+        "id": 20
+      },
+      {
+        "_isSection": false,
+        "action": "SET_NETWORK",
+        "expected": "",
+        "number": "LTE preferred",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 21
+      },
+      {
+        "_isSection": false,
+        "action": "CALL",
+        "expected": "",
+        "number": "+97694001105",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 22
+      },
+      {
+        "_isSection": false,
+        "action": "CHECK_NETWORK",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 23
+      },
+      {
+        "_isSection": false,
+        "action": "END_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 24
+      },
+      {
+        "_isSection": true,
+        "collapsed": true,
+        "label": "CSFB MTC",
+        "id": 25
+      },
+      {
+        "_isSection": false,
+        "action": "SET_VOLTE",
+        "expected": "",
+        "number": "",
+        "target": "Phone2",
+        "value": "off",
+        "value2": "",
+        "id": 26
+      },
+      {
+        "_isSection": false,
+        "action": "SET_NETWORK",
+        "expected": "",
+        "number": "LTE/3G/2G (auto connect)",
+        "target": "Phone2",
+        "value": "",
+        "value2": "",
+        "id": 27
+      },
+      {
+        "_isSection": false,
+        "action": "CALL",
+        "expected": "",
+        "number": "+97694001105",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 28
+      },
+      {
+        "_isSection": false,
+        "action": "CHECK_NETWORK",
+        "expected": "",
+        "number": "",
+        "target": "Phone2",
+        "value": "",
+        "value2": "",
+        "id": 29
+      },
+      {
+        "_isSection": false,
+        "action": "END_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 30
+      },
+      {
+        "_isSection": true,
+        "collapsed": true,
+        "label": "CSFB finish call",
+        "id": 31
+      },
+      {
+        "_isSection": false,
+        "action": "CALL",
+        "expected": "",
+        "number": "+97694001105",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 32
+      },
+      {
+        "_isSection": false,
+        "action": "CHECK_NETWORK",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 33
+      },
+      {
+        "id": 66,
+        "action": "WAIT",
+        "target": "Phone1",
+        "number": "5",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "_isSection": false,
+        "action": "ANSWER_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone2",
+        "value": "",
+        "value2": "",
+        "id": 34
+      },
+      {
+        "_isSection": false,
+        "action": "CHECK_NETWORK",
+        "expected": "",
+        "number": "",
+        "target": "Phone2",
+        "value": "",
+        "value2": "",
+        "id": 35
+      },
+      {
+        "_isSection": false,
+        "action": "WAIT",
+        "expected": "",
+        "number": "5",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 36
+      },
+      {
+        "_isSection": false,
+        "action": "END_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 37
+      },
+      {
+        "_isSection": false,
+        "action": "CHECK_CALL",
+        "expected": "",
+        "number": "+97694001105",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 38
+      },
+      {
+        "_isSection": true,
+        "collapsed": true,
+        "label": "MOC 3G to 2222",
+        "id": 39
+      },
+      {
+        "_isSection": false,
+        "action": "CALL",
+        "expected": "",
+        "number": "2222",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 40
+      },
+      {
+        "_isSection": false,
+        "action": "WAIT",
+        "expected": "",
+        "number": "10",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 41
+      },
+      {
+        "_isSection": false,
+        "action": "END_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 42
+      },
+      {
+        "_isSection": false,
+        "action": "CHECK_CALL",
+        "expected": "",
+        "number": "2222",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 43
+      },
+      {
+        "_isSection": true,
+        "collapsed": true,
+        "label": "3G SMS MO",
+        "id": 44
+      },
+      {
+        "_isSection": false,
+        "action": "SET_NETWORK",
+        "expected": "",
+        "number": "LTE preferred",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 45
+      },
+      {
+        "_isSection": false,
+        "action": "SMS",
+        "expected": "",
+        "number": "+97694001105",
+        "target": "Phone1",
+        "value": "3G test sms mo",
+        "value2": "",
+        "id": 46
+      },
+      {
+        "_isSection": false,
+        "action": "WAIT",
+        "expected": "",
+        "number": "5",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 47
+      },
+      {
+        "_isSection": false,
+        "action": "CHECK_SMS",
+        "expected": "3G test sms mo",
+        "number": "+97695319902",
+        "target": "Phone2",
+        "value": "",
+        "value2": "",
+        "id": 48
+      },
+      {
+        "_isSection": true,
+        "collapsed": true,
+        "label": "3G SMS MT",
+        "id": 49
+      },
+      {
+        "_isSection": false,
+        "action": "SET_NETWORK",
+        "expected": "",
+        "number": "3G only",
+        "target": "Phone2",
+        "value": "",
+        "value2": "",
+        "id": 50
+      },
+      {
+        "_isSection": false,
+        "action": "SMS",
+        "expected": "",
+        "number": "+97695319902",
+        "target": "Phone2",
+        "value": "3G test sms mt",
+        "value2": "",
+        "id": 51
+      },
+      {
+        "_isSection": false,
+        "action": "WAIT",
+        "expected": "",
+        "number": "5",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 52
+      },
+      {
+        "_isSection": false,
+        "action": "CHECK_SMS",
+        "expected": "3G test sms mt",
+        "number": "+97694001105",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 53
+      },
+      {
+        "_isSection": true,
+        "collapsed": true,
+        "label": "3G to 3G MO call",
+        "id": 54
+      },
+      {
+        "_isSection": false,
+        "action": "CALL",
+        "expected": "",
+        "number": "+97694001105",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 55
+      },
+      {
+        "_isSection": false,
+        "action": "ANSWER_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone2",
+        "value": "",
+        "value2": "",
+        "id": 56
+      },
+      {
+        "_isSection": false,
+        "action": "WAIT",
+        "expected": "",
+        "number": "5",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 57
+      },
+      {
+        "_isSection": false,
+        "action": "END_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 58
+      },
+      {
+        "_isSection": false,
+        "action": "CHECK_CALL",
+        "expected": "",
+        "number": "+97694001105",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 59
+      },
+      {
+        "_isSection": true,
+        "collapsed": true,
+        "label": "3G to 3G MT call",
+        "id": 60
+      },
+      {
+        "_isSection": false,
+        "action": "CALL",
+        "expected": "",
+        "number": "+97694001105",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 61
+      },
+      {
+        "_isSection": false,
+        "action": "ANSWER_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone2",
+        "value": "",
+        "value2": "",
+        "id": 62
+      },
+      {
+        "_isSection": false,
+        "action": "WAIT",
+        "expected": "",
+        "number": "5",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 63
+      },
+      {
+        "_isSection": false,
+        "action": "END_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 64
+      },
+      {
+        "_isSection": false,
+        "action": "CHECK_CALL",
+        "expected": "",
+        "number": "+97695319902",
+        "target": "Phone2",
+        "value": "",
+        "value2": "",
+        "id": 65
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "MOC 3G to VoLTE"
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "SET_VOLTE",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "VoLTE already OFF",
+        "duration_ms": 15038
+      },
+      {
+        "type": "step",
+        "step": 2,
+        "action": "SET_VOLTE",
+        "target": "Phone2",
+        "result": "pass",
+        "output": "VoLTE already ON",
+        "duration_ms": 16261
+      },
+      {
+        "type": "step",
+        "step": 3,
+        "action": "SET_NETWORK",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Network type set to '3G preferred'",
+        "duration_ms": 14479
+      },
+      {
+        "type": "step",
+        "step": 4,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5000
+      },
+      {
+        "type": "step",
+        "step": 5,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 1915
+      },
+      {
+        "type": "step",
+        "step": 6,
+        "action": "ANSWER_CALL",
+        "target": "Phone2",
+        "result": "pass",
+        "output": "Call answered (HEADSETHOOK)",
+        "duration_ms": 8287,
+        "call_setup_ms": 10202
+      },
+      {
+        "type": "step",
+        "step": 7,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5000
+      },
+      {
+        "type": "step",
+        "step": 8,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Call ended via KEYCODE_ENDCALL",
+        "duration_ms": 1192
+      },
+      {
+        "type": "step",
+        "step": 9,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Call verified | duration=6s | type=OUTGOING | number=+97694001105",
+        "duration_ms": 2647
+      },
+      {
+        "type": "section_result",
+        "label": "MOC 3G to VoLTE",
+        "result": "pass"
+      },
+      {
+        "type": "section",
+        "label": "CSFB MOC"
+      },
+      {
+        "type": "step",
+        "step": 10,
+        "action": "SET_NETWORK",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Network type set to 'LTE preferred'",
+        "duration_ms": 14708
+      },
+      {
+        "type": "step",
+        "step": 11,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 1897
+      },
+      {
+        "type": "step",
+        "step": 12,
+        "action": "CHECK_NETWORK",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Operator: mobicom | Network: LTE (4G) | Signal: -55 dBm",
+        "duration_ms": 331
+      },
+      {
+        "type": "step",
+        "step": 13,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Call ended via KEYCODE_ENDCALL",
+        "duration_ms": 1261
+      },
+      {
+        "type": "section_result",
+        "label": "CSFB MOC",
+        "result": "pass"
+      },
+      {
+        "type": "section",
+        "label": "CSFB MTC"
+      },
+      {
+        "type": "step",
+        "step": 14,
+        "action": "SET_VOLTE",
+        "target": "Phone2",
+        "result": "pass",
+        "output": "VoLTE OFF \u2014 UI toggle set",
+        "duration_ms": 16519
+      },
+      {
+        "type": "step",
+        "step": 15,
+        "action": "SET_NETWORK",
+        "target": "Phone2",
+        "result": "pass",
+        "output": "Network type set to 'LTE/3G/2G (auto connect)'",
+        "duration_ms": 15080
+      },
+      {
+        "type": "step",
+        "step": 16,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 1929
+      },
+      {
+        "type": "step",
+        "step": 17,
+        "action": "CHECK_NETWORK",
+        "target": "Phone2",
+        "result": "pass",
+        "output": "Operator: Testbed | Network: LTE (4G) | Signal: -63 dBm",
+        "duration_ms": 359
+      },
+      {
+        "type": "step",
+        "step": 18,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Call ended via KEYCODE_ENDCALL",
+        "duration_ms": 1207
+      },
+      {
+        "type": "section_result",
+        "label": "CSFB MTC",
+        "result": "pass"
+      },
+      {
+        "type": "section",
+        "label": "CSFB finish call"
+      },
+      {
+        "type": "step",
+        "step": 19,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 1918
+      },
+      {
+        "type": "step",
+        "step": 20,
+        "action": "CHECK_NETWORK",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Operator: mobicom | Network: UMTS (3G)",
+        "duration_ms": 283
+      },
+      {
+        "type": "step",
+        "step": 21,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5000
+      },
+      {
+        "type": "step",
+        "step": 22,
+        "action": "ANSWER_CALL",
+        "target": "Phone2",
+        "result": "pass",
+        "output": "Call answered (HEADSETHOOK)",
+        "duration_ms": 4669,
+        "call_setup_ms": 11873
+      },
+      {
+        "type": "step",
+        "step": 23,
+        "action": "CHECK_NETWORK",
+        "target": "Phone2",
+        "result": "pass",
+        "output": "Operator: Testbed | Network: UMTS (3G)",
+        "duration_ms": 268
+      },
+      {
+        "type": "step",
+        "step": 24,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5000
+      },
+      {
+        "type": "step",
+        "step": 25,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Call ended via KEYCODE_ENDCALL",
+        "duration_ms": 1241
+      },
+      {
+        "type": "step",
+        "step": 26,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Call verified | duration=6s | type=OUTGOING | number=+97694001105",
+        "duration_ms": 2658
+      },
+      {
+        "type": "section_result",
+        "label": "CSFB finish call",
+        "result": "pass"
+      },
+      {
+        "type": "section",
+        "label": "MOC 3G to 2222"
+      },
+      {
+        "type": "step",
+        "step": 27,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 1906
+      },
+      {
+        "type": "step",
+        "step": 28,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 10.0s",
+        "duration_ms": 10000
+      },
+      {
+        "type": "step",
+        "step": 29,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Call ended via KEYCODE_ENDCALL",
+        "duration_ms": 1279
+      },
+      {
+        "type": "step",
+        "step": 30,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Call verified | duration=7s | type=OUTGOING | number=2222",
+        "duration_ms": 2625
+      },
+      {
+        "type": "section_result",
+        "label": "MOC 3G to 2222",
+        "result": "pass"
+      },
+      {
+        "type": "section",
+        "label": "3G SMS MO"
+      },
+      {
+        "type": "step",
+        "step": 31,
+        "action": "SET_NETWORK",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Network type set to 'LTE preferred'",
+        "duration_ms": 14572
+      },
+      {
+        "type": "step",
+        "step": 32,
+        "action": "SMS",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "SMS sent and verified | body=3G test sms mo",
+        "duration_ms": 7773
+      },
+      {
+        "type": "step",
+        "step": 33,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5000
+      },
+      {
+        "type": "step",
+        "step": 34,
+        "action": "CHECK_SMS",
+        "target": "Phone2",
+        "result": "pass",
+        "output": "3G test sms mo",
+        "duration_ms": 2385,
+        "sms_rtt_ms": 15160
+      },
+      {
+        "type": "section_result",
+        "label": "3G SMS MO",
+        "result": "pass"
+      },
+      {
+        "type": "section",
+        "label": "3G SMS MT"
+      },
+      {
+        "type": "step",
+        "step": 35,
+        "action": "SET_NETWORK",
+        "target": "Phone2",
+        "result": "pass",
+        "output": "Network type set to '3G only'",
+        "duration_ms": 14559
+      },
+      {
+        "type": "step",
+        "step": 36,
+        "action": "SMS",
+        "target": "Phone2",
+        "result": "pass",
+        "output": "SMS sent and verified | body=3G test sms mt",
+        "duration_ms": 8120
+      },
+      {
+        "type": "step",
+        "step": 37,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5000
+      },
+      {
+        "type": "step",
+        "step": 38,
+        "action": "CHECK_SMS",
+        "target": "Phone1",
+        "result": "fail",
+        "output": "NULL, re_body=NULL, re_original_key=NULL, re_recipient_address=NULL, re_content_uri=NULL, re_content_type=NULL, re_file_name=NULL, re_type=0, re_count_info=NULL, re_count_info_custom_reaction=NULL, decorate_bubble_value=NULL, spam_type=0, block_filtered_status=NULL, predefined_id=-1, is_satellite=0, group_cotag=NULL, contains_otp=0, self_phone_number=NULL",
+        "screenshot": "fail_step38_CHECK_SMS_1785746197.png",
+        "duration_ms": 3872
+      },
+      {
+        "type": "section_result",
+        "label": "3G SMS MT",
+        "result": "fail"
+      },
+      {
+        "type": "section",
+        "label": "3G to 3G MO call"
+      },
+      {
+        "type": "step",
+        "step": 39,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 1931
+      },
+      {
+        "type": "step",
+        "step": 40,
+        "action": "ANSWER_CALL",
+        "target": "Phone2",
+        "result": "pass",
+        "output": "Call answered (HEADSETHOOK)",
+        "duration_ms": 9511,
+        "call_setup_ms": 11442
+      },
+      {
+        "type": "step",
+        "step": 41,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5000
+      },
+      {
+        "type": "step",
+        "step": 42,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Call ended via KEYCODE_ENDCALL",
+        "duration_ms": 1195
+      },
+      {
+        "type": "step",
+        "step": 43,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Call verified | duration=6s | type=OUTGOING | number=+97694001105",
+        "duration_ms": 2668
+      },
+      {
+        "type": "section_result",
+        "label": "3G to 3G MO call",
+        "result": "pass"
+      },
+      {
+        "type": "section",
+        "label": "3G to 3G MT call"
+      },
+      {
+        "type": "step",
+        "step": 44,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 1922
+      },
+      {
+        "type": "step",
+        "step": 45,
+        "action": "ANSWER_CALL",
+        "target": "Phone2",
+        "result": "pass",
+        "output": "Call answered (HEADSETHOOK)",
+        "duration_ms": 10919,
+        "call_setup_ms": 12842
+      },
+      {
+        "type": "step",
+        "step": 46,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5000
+      },
+      {
+        "type": "step",
+        "step": 47,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Call ended via KEYCODE_ENDCALL",
+        "duration_ms": 1238
+      },
+      {
+        "type": "step",
+        "step": 48,
+        "action": "CHECK_CALL",
+        "target": "Phone2",
+        "result": "pass",
+        "output": "Call verified | duration=6s | type=INCOMING | number=95319902",
+        "duration_ms": 3741
+      },
+      {
+        "type": "section_result",
+        "label": "3G to 3G MT call",
+        "result": "pass"
+      },
+      {
+        "type": "done",
+        "total": 48,
+        "passed": 47,
+        "failed": 1,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T16:29:04.096667",
+    "total": 9,
+    "passed": 9,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "MOC 3G to VoLTE",
+        "id": 0
+      },
+      {
+        "_isSection": false,
+        "action": "SET_VOLTE",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "off",
+        "value2": "",
+        "id": 1
+      },
+      {
+        "_isSection": false,
+        "action": "SET_VOLTE",
+        "expected": "",
+        "number": "",
+        "target": "Phone2",
+        "value": "on",
+        "value2": "",
+        "id": 2
+      },
+      {
+        "_isSection": false,
+        "action": "SET_NETWORK",
+        "expected": "",
+        "number": "3G preferred",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 3
+      },
+      {
+        "id": 9,
+        "action": "WAIT",
+        "target": "Phone1",
+        "number": "5",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "_isSection": false,
+        "action": "CALL",
+        "expected": "",
+        "number": "+97694001105",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 4
+      },
+      {
+        "_isSection": false,
+        "action": "ANSWER_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone2",
+        "value": "",
+        "value2": "",
+        "id": 5
+      },
+      {
+        "_isSection": false,
+        "action": "WAIT",
+        "expected": "",
+        "number": "5",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 6
+      },
+      {
+        "_isSection": false,
+        "action": "END_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 7
+      },
+      {
+        "_isSection": false,
+        "action": "CHECK_CALL",
+        "expected": "",
+        "number": "+97694001105",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 8
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "MOC 3G to VoLTE"
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "SET_VOLTE",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "VoLTE already OFF",
+        "duration_ms": 10485
+      },
+      {
+        "type": "step",
+        "step": 2,
+        "action": "SET_VOLTE",
+        "target": "Phone2",
+        "result": "pass",
+        "output": "VoLTE already ON",
+        "duration_ms": 12902
+      },
+      {
+        "type": "step",
+        "step": 3,
+        "action": "SET_NETWORK",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Network type set to '3G preferred'",
+        "duration_ms": 14439
+      },
+      {
+        "type": "step",
+        "step": 4,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5000
+      },
+      {
+        "type": "step",
+        "step": 5,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 1968
+      },
+      {
+        "type": "step",
+        "step": 6,
+        "action": "ANSWER_CALL",
+        "target": "Phone2",
+        "result": "pass",
+        "output": "Call answered (HEADSETHOOK)",
+        "duration_ms": 7398,
+        "call_setup_ms": 9367
+      },
+      {
+        "type": "step",
+        "step": 7,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5000
+      },
+      {
+        "type": "step",
+        "step": 8,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Call ended via KEYCODE_ENDCALL",
+        "duration_ms": 1291
+      },
+      {
+        "type": "step",
+        "step": 9,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Call verified | duration=6s | type=OUTGOING | number=+97694001105",
+        "duration_ms": 2647
+      },
+      {
+        "type": "section_result",
+        "label": "MOC 3G to VoLTE",
+        "result": "pass"
+      },
+      {
+        "type": "done",
+        "total": 9,
+        "passed": 9,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T16:18:49.142204",
+    "total": 45,
+    "passed": 40,
+    "failed": 5,
+    "skipped": 0,
+    "steps": [
+      {
+        "id": 5,
+        "_isSection": true,
+        "label": "MOC 3G to VoLTE",
+        "collapsed": true
+      },
+      {
+        "id": 8,
+        "action": "SET_VOLTE",
+        "target": "Phone1",
+        "number": "",
+        "value": "off",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 10,
+        "action": "SET_NETWORK",
+        "target": "Phone1",
+        "number": "3G",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 6,
+        "action": "CALL",
+        "target": "Phone1",
+        "number": "+97694001105",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 9,
+        "action": "ANSWER_CALL",
+        "target": "Phone2",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 11,
+        "action": "WAIT",
+        "target": "Phone1",
+        "number": "5",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 12,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 13,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "number": "+97694001105",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 14,
+        "_isSection": true,
+        "label": "CSFB MOC",
+        "collapsed": true
+      },
+      {
+        "id": 16,
+        "action": "SET_NETWORK",
+        "target": "Phone1",
+        "number": "4G",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 17,
+        "action": "CALL",
+        "target": "Phone1",
+        "number": "+97694001105",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 22,
+        "action": "CHECK_NETWORK",
+        "target": "Phone1",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 20,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 23,
+        "_isSection": true,
+        "label": "CSFB MTC",
+        "collapsed": true
+      },
+      {
+        "id": 28,
+        "action": "SET_VOLTE",
+        "target": "Phone2",
+        "number": "",
+        "value": "off",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 24,
+        "action": "SET_NETWORK",
+        "target": "Phone2",
+        "number": "LTE/3G/2G (auto connect)",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 25,
+        "action": "CALL",
+        "target": "Phone1",
+        "number": "+97694001105",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 26,
+        "action": "CHECK_NETWORK",
+        "target": "Phone2",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 27,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 29,
+        "_isSection": true,
+        "label": "CSFB finish call",
+        "collapsed": true
+      },
+      {
+        "id": 32,
+        "action": "CALL",
+        "target": "Phone1",
+        "number": "+97694001105",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 33,
+        "action": "CHECK_NETWORK",
+        "target": "Phone1",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 36,
+        "action": "ANSWER_CALL",
+        "target": "Phone2",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 35,
+        "action": "CHECK_NETWORK",
+        "target": "Phone2",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 37,
+        "action": "WAIT",
+        "target": "Phone1",
+        "number": "5",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 34,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 38,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "number": "+97694001105",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 39,
+        "_isSection": true,
+        "label": "MOC 3G to 2222",
+        "collapsed": true
+      },
+      {
+        "id": 40,
+        "action": "CALL",
+        "target": "Phone1",
+        "number": "2222",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 41,
+        "action": "WAIT",
+        "target": "Phone1",
+        "number": "10",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 42,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 43,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "number": "2222",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "_isSection": true,
+        "collapsed": true,
+        "label": "3G SMS MO",
+        "id": 44
+      },
+      {
+        "id": 48,
+        "action": "SET_NETWORK",
+        "target": "Phone1",
+        "number": "3G",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "_isSection": false,
+        "action": "SMS",
+        "expected": "",
+        "number": "+97694001105",
+        "target": "Phone1",
+        "value": "3G test sms mo",
+        "value2": "",
+        "id": 45
+      },
+      {
+        "_isSection": false,
+        "action": "WAIT",
+        "expected": "",
+        "number": "5",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 46
+      },
+      {
+        "_isSection": false,
+        "action": "CHECK_SMS",
+        "expected": "3G test sms mo",
+        "number": "+97695319902",
+        "target": "Phone2",
+        "value": "",
+        "value2": "",
+        "id": 47
+      },
+      {
+        "_isSection": true,
+        "collapsed": true,
+        "label": "3G SMS MT",
+        "id": 49
+      },
+      {
+        "id": 50,
+        "action": "SET_NETWORK",
+        "target": "Phone2",
+        "number": "3G only",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "_isSection": false,
+        "action": "SMS",
+        "expected": "",
+        "number": "+97695319902",
+        "target": "Phone2",
+        "value": "3G test sms mt",
+        "value2": "",
+        "id": 51
+      },
+      {
+        "_isSection": false,
+        "action": "WAIT",
+        "expected": "",
+        "number": "5",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 52
+      },
+      {
+        "_isSection": false,
+        "action": "CHECK_SMS",
+        "expected": "3G test sms mt",
+        "number": "+97694001105",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 53
+      },
+      {
+        "id": 54,
+        "_isSection": true,
+        "label": "3G to 3G MO call",
+        "collapsed": true
+      },
+      {
+        "id": 55,
+        "action": "CALL",
+        "target": "Phone1",
+        "number": "+97694001105",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 56,
+        "action": "ANSWER_CALL",
+        "target": "Phone2",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 57,
+        "action": "WAIT",
+        "target": "Phone1",
+        "number": "5",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 58,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 59,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "number": "+97694001105",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 60,
+        "_isSection": true,
+        "label": "3G to 3G MT call",
+        "collapsed": true
+      },
+      {
+        "id": 61,
+        "action": "CALL",
+        "target": "Phone1",
+        "number": "+97694001105",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 62,
+        "action": "ANSWER_CALL",
+        "target": "Phone2",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 63,
+        "action": "WAIT",
+        "target": "Phone1",
+        "number": "5",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 64,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 65,
+        "action": "CHECK_CALL",
+        "target": "Phone2",
+        "number": "+97695319902",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "MOC 3G to VoLTE"
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "SET_VOLTE",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "VoLTE OFF \u2014 UI toggle set",
+        "duration_ms": 15766
+      },
+      {
+        "type": "step",
+        "step": 2,
+        "action": "SET_NETWORK",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Network type set to 3G (option: '3g preferred')",
+        "duration_ms": 14505
+      },
+      {
+        "type": "step",
+        "step": 3,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 1974
+      },
+      {
+        "type": "step",
+        "step": 4,
+        "action": "ANSWER_CALL",
+        "target": "Phone2",
+        "result": "fail",
+        "output": "No incoming call on RZ8R70VGAXW within 30s (last state=0: 0=idle 1=ringing 2=offhook)",
+        "screenshot": "fail_step4_ANSWER_CALL_1785745193.png",
+        "duration_ms": 34949
+      },
+      {
+        "type": "step",
+        "step": 5,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5000
+      },
+      {
+        "type": "step",
+        "step": 6,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Call ended via KEYCODE_ENDCALL",
+        "duration_ms": 1204
+      },
+      {
+        "type": "step",
+        "step": 7,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "result": "fail",
+        "output": "Call to/from +97694001105 found but duration=0 (call may not have connected)",
+        "screenshot": "fail_step7_CHECK_CALL_1785745205.png",
+        "duration_ms": 3999
+      },
+      {
+        "type": "section_result",
+        "label": "MOC 3G to VoLTE",
+        "result": "fail"
+      },
+      {
+        "type": "section",
+        "label": "CSFB MOC"
+      },
+      {
+        "type": "step",
+        "step": 8,
+        "action": "SET_NETWORK",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Network type set to 4G (option: 'lte preferred')",
+        "duration_ms": 14529
+      },
+      {
+        "type": "step",
+        "step": 9,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 1919
+      },
+      {
+        "type": "step",
+        "step": 10,
+        "action": "CHECK_NETWORK",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Operator: mobicom | Network: Unknown | Signal: -54 dBm",
+        "duration_ms": 608
+      },
+      {
+        "type": "step",
+        "step": 11,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Call ended via KEYCODE_ENDCALL",
+        "duration_ms": 1306
+      },
+      {
+        "type": "section_result",
+        "label": "CSFB MOC",
+        "result": "pass"
+      },
+      {
+        "type": "section",
+        "label": "CSFB MTC"
+      },
+      {
+        "type": "step",
+        "step": 12,
+        "action": "SET_VOLTE",
+        "target": "Phone2",
+        "result": "pass",
+        "output": "VoLTE OFF \u2014 UI toggle set",
+        "duration_ms": 18014
+      },
+      {
+        "type": "step",
+        "step": 13,
+        "action": "SET_NETWORK",
+        "target": "Phone2",
+        "result": "pass",
+        "output": "Network type set to 'LTE/3G/2G (auto connect)'",
+        "duration_ms": 15066
+      },
+      {
+        "type": "step",
+        "step": 14,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 1887
+      },
+      {
+        "type": "step",
+        "step": 15,
+        "action": "CHECK_NETWORK",
+        "target": "Phone2",
+        "result": "pass",
+        "output": "Operator: Testbed | Network: LTE (4G) | Signal: -60 dBm",
+        "duration_ms": 227
+      },
+      {
+        "type": "step",
+        "step": 16,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Call ended via KEYCODE_ENDCALL",
+        "duration_ms": 1321
+      },
+      {
+        "type": "section_result",
+        "label": "CSFB MTC",
+        "result": "pass"
+      },
+      {
+        "type": "section",
+        "label": "CSFB finish call"
+      },
+      {
+        "type": "step",
+        "step": 17,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 1893
+      },
+      {
+        "type": "step",
+        "step": 18,
+        "action": "CHECK_NETWORK",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Operator: mobicom | Network: Unknown | Signal: -57 dBm",
+        "duration_ms": 402
+      },
+      {
+        "type": "step",
+        "step": 19,
+        "action": "ANSWER_CALL",
+        "target": "Phone2",
+        "result": "fail",
+        "output": "No incoming call on RZ8R70VGAXW within 30s (last state=0: 0=idle 1=ringing 2=offhook)",
+        "screenshot": "fail_step19_ANSWER_CALL_1785745296.png",
+        "duration_ms": 34495
+      },
+      {
+        "type": "step",
+        "step": 20,
+        "action": "CHECK_NETWORK",
+        "target": "Phone2",
+        "result": "pass",
+        "output": "Operator: Testbed | Network: LTE (4G) | Signal: -58 dBm",
+        "duration_ms": 304
+      },
+      {
+        "type": "step",
+        "step": 21,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5000
+      },
+      {
+        "type": "step",
+        "step": 22,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Call ended via KEYCODE_ENDCALL",
+        "duration_ms": 1434
+      },
+      {
+        "type": "step",
+        "step": 23,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "result": "fail",
+        "output": "Call to/from +97694001105 found but duration=0 (call may not have connected)",
+        "screenshot": "fail_step23_CHECK_CALL_1785745307.png",
+        "duration_ms": 3398
+      },
+      {
+        "type": "section_result",
+        "label": "CSFB finish call",
+        "result": "fail"
+      },
+      {
+        "type": "section",
+        "label": "MOC 3G to 2222"
+      },
+      {
+        "type": "step",
+        "step": 24,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 1851
+      },
+      {
+        "type": "step",
+        "step": 25,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 10.0s",
+        "duration_ms": 10000
+      },
+      {
+        "type": "step",
+        "step": 26,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Call ended via KEYCODE_ENDCALL",
+        "duration_ms": 1218
+      },
+      {
+        "type": "step",
+        "step": 27,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Call verified | duration=7s | type=OUTGOING | number=2222",
+        "duration_ms": 2661
+      },
+      {
+        "type": "section_result",
+        "label": "MOC 3G to 2222",
+        "result": "pass"
+      },
+      {
+        "type": "section",
+        "label": "3G SMS MO"
+      },
+      {
+        "type": "step",
+        "step": 28,
+        "action": "SET_NETWORK",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Network type set to 3G (option: '3g preferred')",
+        "duration_ms": 14459
+      },
+      {
+        "type": "step",
+        "step": 29,
+        "action": "SMS",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "SMS sent and verified | body=3G test sms mo",
+        "duration_ms": 7737
+      },
+      {
+        "type": "step",
+        "step": 30,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5000
+      },
+      {
+        "type": "step",
+        "step": 31,
+        "action": "CHECK_SMS",
+        "target": "Phone2",
+        "result": "pass",
+        "output": "3G test sms mo",
+        "duration_ms": 1356,
+        "sms_rtt_ms": 14096
+      },
+      {
+        "type": "section_result",
+        "label": "3G SMS MO",
+        "result": "pass"
+      },
+      {
+        "type": "section",
+        "label": "3G SMS MT"
+      },
+      {
+        "type": "step",
+        "step": 32,
+        "action": "SET_NETWORK",
+        "target": "Phone2",
+        "result": "pass",
+        "output": "Network type set to '3G only'",
+        "duration_ms": 15040
+      },
+      {
+        "type": "step",
+        "step": 33,
+        "action": "SMS",
+        "target": "Phone2",
+        "result": "pass",
+        "output": "SMS sent and verified | body=3G test sms mt",
+        "duration_ms": 9031
+      },
+      {
+        "type": "step",
+        "step": 34,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5000
+      },
+      {
+        "type": "step",
+        "step": 35,
+        "action": "CHECK_SMS",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "3G test sms mt",
+        "duration_ms": 1359,
+        "sms_rtt_ms": 15392
+      },
+      {
+        "type": "section_result",
+        "label": "3G SMS MT",
+        "result": "pass"
+      },
+      {
+        "type": "section",
+        "label": "3G to 3G MO call"
+      },
+      {
+        "type": "step",
+        "step": 36,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 1905
+      },
+      {
+        "type": "step",
+        "step": 37,
+        "action": "ANSWER_CALL",
+        "target": "Phone2",
+        "result": "pass",
+        "output": "Call answered (HEADSETHOOK)",
+        "duration_ms": 12537,
+        "call_setup_ms": 14443
+      },
+      {
+        "type": "step",
+        "step": 38,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5000
+      },
+      {
+        "type": "step",
+        "step": 39,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Call ended via KEYCODE_ENDCALL",
+        "duration_ms": 1350
+      },
+      {
+        "type": "step",
+        "step": 40,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Call verified | duration=5s | type=OUTGOING | number=+97694001105",
+        "duration_ms": 2683
+      },
+      {
+        "type": "section_result",
+        "label": "3G to 3G MO call",
+        "result": "pass"
+      },
+      {
+        "type": "section",
+        "label": "3G to 3G MT call"
+      },
+      {
+        "type": "step",
+        "step": 41,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 1934
+      },
+      {
+        "type": "step",
+        "step": 42,
+        "action": "ANSWER_CALL",
+        "target": "Phone2",
+        "result": "fail",
+        "output": "No incoming call on RZ8R70VGAXW within 30s (last state=0: 0=idle 1=ringing 2=offhook)",
+        "screenshot": "fail_step42_ANSWER_CALL_1785745440.png",
+        "duration_ms": 35126
+      },
+      {
+        "type": "step",
+        "step": 43,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5000
+      },
+      {
+        "type": "step",
+        "step": 44,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Call ended via KEYCODE_ENDCALL",
+        "duration_ms": 1253
+      },
+      {
+        "type": "step",
+        "step": 45,
+        "action": "CHECK_CALL",
+        "target": "Phone2",
+        "result": "pass",
+        "output": "Call verified | duration=5s | type=INCOMING | number=95319902",
+        "duration_ms": 3499
+      },
+      {
+        "type": "section_result",
+        "label": "3G to 3G MT call",
+        "result": "fail"
+      },
+      {
+        "type": "done",
+        "total": 45,
+        "passed": 40,
+        "failed": 5,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T16:06:13.025384",
+    "total": 4,
+    "passed": 4,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "VoLTE to emergency call ",
+        "id": 0
+      },
+      {
+        "_isSection": false,
+        "action": "CALL",
+        "expected": "",
+        "number": "112",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 1
+      },
+      {
+        "_isSection": false,
+        "action": "WAIT",
+        "expected": "",
+        "number": "5",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 2
+      },
+      {
+        "_isSection": false,
+        "action": "END_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 3
+      },
+      {
+        "_isSection": false,
+        "action": "CHECK_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 4
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 1962
+      },
+      {
+        "type": "step",
+        "step": 2,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5000
+      },
+      {
+        "type": "step",
+        "step": 3,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Call ended via end-call button tap",
+        "duration_ms": 5269
+      },
+      {
+        "type": "step",
+        "step": 4,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Call verified | duration=7s | type=OUTGOING | number=112",
+        "duration_ms": 2742
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "pass"
+      },
+      {
+        "type": "done",
+        "total": 4,
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T16:04:56.202411",
+    "total": 4,
+    "passed": 4,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "VoLTE to emergency call ",
+        "id": 0
+      },
+      {
+        "_isSection": false,
+        "action": "CALL",
+        "expected": "",
+        "number": "112",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 1
+      },
+      {
+        "_isSection": false,
+        "action": "WAIT",
+        "expected": "",
+        "number": "10",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 2
+      },
+      {
+        "_isSection": false,
+        "action": "END_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 3
+      },
+      {
+        "_isSection": false,
+        "action": "CHECK_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 4
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 2318
+      },
+      {
+        "type": "step",
+        "step": 2,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 10.0s",
+        "duration_ms": 10000
+      },
+      {
+        "type": "step",
+        "step": 3,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Call ended via end-call button tap",
+        "duration_ms": 4809
+      },
+      {
+        "type": "step",
+        "step": 4,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Call verified | duration=12s | type=OUTGOING | number=112",
+        "duration_ms": 2687
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "pass"
+      },
+      {
+        "type": "done",
+        "total": 4,
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T16:04:34.104049",
+    "total": 4,
+    "passed": 4,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "VoLTE to emergency call ",
+        "id": 0
+      },
+      {
+        "_isSection": false,
+        "action": "CALL",
+        "expected": "",
+        "number": "112",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 1
+      },
+      {
+        "_isSection": false,
+        "action": "WAIT",
+        "expected": "",
+        "number": "10",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 2
+      },
+      {
+        "_isSection": false,
+        "action": "END_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 3
+      },
+      {
+        "_isSection": false,
+        "action": "CHECK_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 4
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 1756
+      },
+      {
+        "type": "step",
+        "step": 2,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 10.0s",
+        "duration_ms": 10000
+      },
+      {
+        "type": "step",
+        "step": 3,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Call ended via KEYCODE_ENDCALL",
+        "duration_ms": 1300
+      },
+      {
+        "type": "step",
+        "step": 4,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Call verified | duration=20s | type=OUTGOING | number=112",
+        "duration_ms": 2809
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "pass"
+      },
+      {
+        "type": "done",
+        "total": 4,
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T16:03:44.056166",
+    "total": 4,
+    "passed": 4,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "VoLTE to emergency call ",
+        "id": 0
+      },
+      {
+        "_isSection": false,
+        "action": "CALL",
+        "expected": "",
+        "number": "112",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 1
+      },
+      {
+        "_isSection": false,
+        "action": "WAIT",
+        "expected": "",
+        "number": "5",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 2
+      },
+      {
+        "_isSection": false,
+        "action": "END_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 3
+      },
+      {
+        "_isSection": false,
+        "action": "CHECK_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 4
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 1969
+      },
+      {
+        "type": "step",
+        "step": 2,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5000
+      },
+      {
+        "type": "step",
+        "step": 3,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 3864
+      },
+      {
+        "type": "step",
+        "step": 4,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Call verified | duration=3s | type=OUTGOING | number=112",
+        "duration_ms": 2628
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "pass"
+      },
+      {
+        "type": "done",
+        "total": 4,
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T15:54:56.543662",
+    "total": 3,
+    "passed": 3,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "VoLTE to emergency call ",
+        "id": 45
+      },
+      {
+        "_isSection": false,
+        "action": "CALL",
+        "expected": "",
+        "number": "99920089",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 46
+      },
+      {
+        "_isSection": false,
+        "action": "END_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 48
+      },
+      {
+        "_isSection": false,
+        "action": "CHECK_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 49
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 2005
+      },
+      {
+        "type": "step",
+        "step": 2,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 277
+      },
+      {
+        "type": "step",
+        "step": 3,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Call verified | duration=4s | type=OUTGOING | number=112",
+        "duration_ms": 2919
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "pass"
+      },
+      {
+        "type": "done",
+        "total": 3,
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T15:54:37.139040",
+    "total": 3,
+    "passed": 3,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "VoLTE to emergency call ",
+        "id": 45
+      },
+      {
+        "_isSection": false,
+        "action": "CALL",
+        "expected": "",
+        "number": "112",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 46
+      },
+      {
+        "_isSection": false,
+        "action": "END_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 48
+      },
+      {
+        "_isSection": false,
+        "action": "CHECK_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 49
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 1942
+      },
+      {
+        "type": "step",
+        "step": 2,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 142
+      },
+      {
+        "type": "step",
+        "step": 3,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Call verified | duration=16s | type=OUTGOING | number=112",
+        "duration_ms": 3329
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "pass"
+      },
+      {
+        "type": "done",
+        "total": 3,
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T15:54:07.876078",
+    "total": 4,
+    "passed": 3,
+    "failed": 1,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "VoLTE to emergency call ",
+        "id": 45
+      },
+      {
+        "_isSection": false,
+        "action": "CALL",
+        "expected": "",
+        "number": "112",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 46
+      },
+      {
+        "_isSection": false,
+        "action": "WAIT",
+        "expected": "",
+        "number": "10",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 47
+      },
+      {
+        "_isSection": false,
+        "action": "END_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 48
+      },
+      {
+        "_isSection": false,
+        "action": "CHECK_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 49
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 1964
+      },
+      {
+        "type": "step",
+        "step": 2,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 10.0s",
+        "duration_ms": 10000
+      },
+      {
+        "type": "step",
+        "step": 3,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 122
+      },
+      {
+        "type": "step",
+        "step": 4,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "result": "fail",
+        "output": "Call to/from  found but duration=0 (call may not have connected)",
+        "screenshot": "fail_step4_CHECK_CALL_1785743663.png",
+        "duration_ms": 3857
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "fail"
+      },
+      {
+        "type": "done",
+        "total": 4,
+        "passed": 3,
+        "failed": 1,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T15:53:34.061055",
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "VoLTE to emergency call ",
+        "id": 37
+      },
+      {
+        "id": 43,
+        "action": "CALL",
+        "target": "Phone1",
+        "number": "112",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 1786
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "pass"
+      },
+      {
+        "type": "done",
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T15:53:19.466416",
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "VoLTE to emergency call ",
+        "id": 37
+      },
+      {
+        "id": 43,
+        "action": "CALL",
+        "target": "Phone1",
+        "number": "2222",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 2012
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "pass"
+      },
+      {
+        "type": "done",
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T15:53:09.591878",
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "VoLTE to emergency call ",
+        "id": 37
+      },
+      {
+        "id": 43,
+        "action": "CALL",
+        "target": "Phone1",
+        "number": "112",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Starting: Intent { act=android.intent.action.CALL dat=tel:xxx }",
+        "duration_ms": 136
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "pass"
+      },
+      {
+        "type": "done",
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T15:52:41.307874",
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "VoLTE to emergency call ",
+        "id": 37
+      },
+      {
+        "id": 43,
+        "action": "CALL",
+        "target": "Phone1",
+        "number": "112",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Starting: Intent { act=android.intent.action.CALL dat=tel:xxx }",
+        "duration_ms": 142
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "pass"
+      },
+      {
+        "type": "done",
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T15:51:26.140817",
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "VoLTE to emergency call ",
+        "id": 37
+      },
+      {
+        "id": 43,
+        "action": "CALL",
+        "target": "Phone1",
+        "number": "112",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Starting: Intent { act=android.intent.action.CALL dat=tel:xxx }",
+        "duration_ms": 107
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "pass"
+      },
+      {
+        "type": "done",
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T15:51:18.052638",
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "VoLTE to emergency call ",
+        "id": 37
+      },
+      {
+        "id": 43,
+        "action": "CALL",
+        "target": "Phone1",
+        "number": "2222",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Starting: Intent { act=android.intent.action.CALL dat=tel:xxxx }",
+        "duration_ms": 134
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "pass"
+      },
+      {
+        "type": "done",
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T15:51:04.482033",
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "VoLTE to emergency call ",
+        "id": 37
+      },
+      {
+        "id": 43,
+        "action": "CALL",
+        "target": "Phone1",
+        "number": "102",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Starting: Intent { act=android.intent.action.CALL dat=tel:xxx }",
+        "duration_ms": 132
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "pass"
+      },
+      {
+        "type": "done",
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T15:49:37.355240",
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "VoLTE to emergency call ",
+        "id": 37
+      },
+      {
+        "id": 43,
+        "action": "CALL",
+        "target": "Phone1",
+        "number": "2222",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Starting: Intent { act=android.intent.action.CALL dat=tel:xxxx }",
+        "duration_ms": 125
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "pass"
+      },
+      {
+        "type": "done",
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T15:44:07.034402",
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "VoLTE to emergency call ",
+        "id": 37
+      },
+      {
+        "id": 43,
+        "action": "CALL",
+        "target": "Phone1",
+        "number": "2222",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Starting: Intent { act=android.intent.action.CALL dat=tel:xxxx }",
+        "duration_ms": 143
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "pass"
+      },
+      {
+        "type": "done",
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T15:43:57.893581",
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "VoLTE to emergency call ",
+        "id": 37
+      },
+      {
+        "id": 43,
+        "action": "CALL",
+        "target": "Phone1",
+        "number": "102",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Starting: Intent { act=android.intent.action.CALL dat=tel:xxx }",
+        "duration_ms": 107
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "pass"
+      },
+      {
+        "type": "done",
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T15:43:42.166470",
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "VoLTE to emergency call ",
+        "id": 37
+      },
+      {
+        "id": 43,
+        "action": "CALL",
+        "target": "Phone1",
+        "number": "99920089",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Starting: Intent { act=android.intent.action.CALL dat=tel:xxxxxxxx }",
+        "duration_ms": 134
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "pass"
+      },
+      {
+        "type": "done",
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T15:43:27.108756",
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "VoLTE to emergency call ",
+        "id": 37
+      },
+      {
+        "id": 43,
+        "action": "CALL",
+        "target": "Phone1",
+        "number": "+102",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Starting: Intent { act=android.intent.action.CALL dat=tel:xxxx }",
+        "duration_ms": 123
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "pass"
+      },
+      {
+        "type": "done",
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T15:43:21.298925",
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "VoLTE to emergency call ",
+        "id": 37
+      },
+      {
+        "id": 43,
+        "action": "CALL",
+        "target": "Phone1",
+        "number": "102",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Starting: Intent { act=android.intent.action.CALL dat=tel:xxx }",
+        "duration_ms": 117
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "pass"
+      },
+      {
+        "type": "done",
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T15:43:14.054563",
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "VoLTE to emergency call ",
+        "id": 37
+      },
+      {
+        "id": 43,
+        "action": "CALL",
+        "target": "Phone1",
+        "number": "+976102",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Starting: Intent { act=android.intent.action.CALL dat=tel:xxxxxxx }",
+        "duration_ms": 118
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "pass"
+      },
+      {
+        "type": "done",
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T15:43:06.048402",
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "VoLTE to emergency call ",
+        "id": 37
+      },
+      {
+        "id": 43,
+        "action": "CALL",
+        "target": "Phone1",
+        "number": "102",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Starting: Intent { act=android.intent.action.CALL dat=tel:xxx }",
+        "duration_ms": 133
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "pass"
+      },
+      {
+        "type": "done",
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T15:42:48.605839",
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "VoLTE to emergency call ",
+        "id": 37
+      },
+      {
+        "id": 42,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "number": "101",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Call verified | duration=5s | type=OUTGOING | number=101",
+        "duration_ms": 2613
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "pass"
+      },
+      {
+        "type": "done",
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T15:42:17.253453",
+    "total": 3,
+    "passed": 3,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "VoLTE to emergency call ",
+        "id": 37
+      },
+      {
+        "_isSection": false,
+        "action": "CALL",
+        "expected": "",
+        "number": "101",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 38
+      },
+      {
+        "_isSection": false,
+        "action": "WAIT",
+        "expected": "",
+        "number": "5",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 39
+      },
+      {
+        "_isSection": false,
+        "action": "END_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 40
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Starting: Intent { act=android.intent.action.CALL dat=tel:xxx }",
+        "duration_ms": 129
+      },
+      {
+        "type": "step",
+        "step": 2,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5000
+      },
+      {
+        "type": "step",
+        "step": 3,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 114
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "pass"
+      },
+      {
+        "type": "done",
+        "total": 3,
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T15:41:59.231933",
+    "total": 3,
+    "passed": 3,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "VoLTE to emergency call ",
+        "id": 37
+      },
+      {
+        "_isSection": false,
+        "action": "CALL",
+        "expected": "",
+        "number": "101",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 38
+      },
+      {
+        "_isSection": false,
+        "action": "WAIT",
+        "expected": "",
+        "number": "5",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 39
+      },
+      {
+        "_isSection": false,
+        "action": "END_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 40
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Starting: Intent { act=android.intent.action.CALL dat=tel:xxx }",
+        "duration_ms": 140
+      },
+      {
+        "type": "step",
+        "step": 2,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5000
+      },
+      {
+        "type": "step",
+        "step": 3,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 103
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "pass"
+      },
+      {
+        "type": "done",
+        "total": 3,
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T15:41:39.839790",
+    "total": 3,
+    "passed": 3,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "VoLTE to emergency call ",
+        "id": 37
+      },
+      {
+        "_isSection": false,
+        "action": "CALL",
+        "expected": "",
+        "number": "99920089",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 38
+      },
+      {
+        "_isSection": false,
+        "action": "WAIT",
+        "expected": "",
+        "number": "5",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 39
+      },
+      {
+        "_isSection": false,
+        "action": "END_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 40
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Starting: Intent { act=android.intent.action.CALL dat=tel:xxxxxxxx }",
+        "duration_ms": 114
+      },
+      {
+        "type": "step",
+        "step": 2,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5000
+      },
+      {
+        "type": "step",
+        "step": 3,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 107
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "pass"
+      },
+      {
+        "type": "done",
+        "total": 3,
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T15:41:19.598096",
+    "total": 4,
+    "passed": 3,
+    "failed": 1,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "VoLTE to emergency call ",
+        "id": 37
+      },
+      {
+        "_isSection": false,
+        "action": "CALL",
+        "expected": "",
+        "number": "112",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 38
+      },
+      {
+        "_isSection": false,
+        "action": "WAIT",
+        "expected": "",
+        "number": "5",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 39
+      },
+      {
+        "_isSection": false,
+        "action": "END_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 40
+      },
+      {
+        "_isSection": false,
+        "action": "CHECK_CALL",
+        "expected": "",
+        "number": "+97694001105",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 41
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Starting: Intent { act=android.intent.action.CALL dat=tel:xxx }",
+        "duration_ms": 136
+      },
+      {
+        "type": "step",
+        "step": 2,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5000
+      },
+      {
+        "type": "step",
+        "step": 3,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 94
+      },
+      {
+        "type": "step",
+        "step": 4,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "result": "fail",
+        "output": "Call to/from +97694001105 found but duration=0 (call may not have connected)",
+        "screenshot": "fail_step4_CHECK_CALL_1785742887.png",
+        "duration_ms": 3181
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "fail"
+      },
+      {
+        "type": "done",
+        "total": 4,
+        "passed": 3,
+        "failed": 1,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T15:38:58.778967",
+    "total": 4,
+    "passed": 3,
+    "failed": 1,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "VoLTE to emergency call ",
+        "id": 37
+      },
+      {
+        "_isSection": false,
+        "action": "CALL",
+        "expected": "",
+        "number": "112",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 38
+      },
+      {
+        "_isSection": false,
+        "action": "WAIT",
+        "expected": "",
+        "number": "5",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 39
+      },
+      {
+        "_isSection": false,
+        "action": "END_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 40
+      },
+      {
+        "_isSection": false,
+        "action": "CHECK_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 41
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Starting: Intent { act=android.intent.action.CALL dat=tel:xxx }",
+        "duration_ms": 141
+      },
+      {
+        "type": "step",
+        "step": 2,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5001
+      },
+      {
+        "type": "step",
+        "step": 3,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 137
+      },
+      {
+        "type": "step",
+        "step": 4,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "result": "fail",
+        "output": "Call to/from  found but duration=0 (call may not have connected)",
+        "screenshot": "fail_step4_CHECK_CALL_1785742746.png",
+        "duration_ms": 3476
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "fail"
+      },
+      {
+        "type": "done",
+        "total": 4,
+        "passed": 3,
+        "failed": 1,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T15:37:21.545043",
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "VoLTE to emergency call ",
+        "id": 11
+      },
+      {
+        "_isSection": false,
+        "action": "CALL",
+        "expected": "",
+        "number": "+97694001105",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 12
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Starting: Intent { act=android.intent.action.CALL dat=tel:xxxxxxxxxxxx }",
+        "duration_ms": 242
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "pass"
+      },
+      {
+        "type": "done",
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T15:31:02.701504",
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "VoLTE to emergency call ",
+        "id": 11
+      },
+      {
+        "_isSection": false,
+        "action": "CALL",
+        "expected": "",
+        "number": "+97699920089",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 12
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Starting: Intent { act=android.intent.action.CALL dat=tel:xxxxxxxxxxxx }",
+        "duration_ms": 177
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "pass"
+      },
+      {
+        "type": "done",
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T15:30:45.334109",
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "VoLTE to emergency call ",
+        "id": 11
+      },
+      {
+        "_isSection": false,
+        "action": "CALL",
+        "expected": "",
+        "number": "+97694001105",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 12
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Starting: Intent { act=android.intent.action.CALL dat=tel:xxxxxxxxxxxx }",
+        "duration_ms": 162
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "pass"
+      },
+      {
+        "type": "done",
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T15:30:25.937413",
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "VoLTE to emergency call ",
+        "id": 11
+      },
+      {
+        "_isSection": false,
+        "action": "CALL",
+        "expected": "",
+        "number": "+97695319902",
+        "target": "Phone2",
+        "value": "",
+        "value2": "",
+        "id": 12
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CALL",
+        "target": "Phone2",
+        "result": "pass",
+        "output": "Starting: Intent { act=android.intent.action.CALL dat=tel:xxxxxxxxxxxx }",
+        "duration_ms": 226
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "pass"
+      },
+      {
+        "type": "done",
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T15:30:03.675065",
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "VoLTE to emergency call ",
+        "id": 11
+      },
+      {
+        "_isSection": false,
+        "action": "CALL",
+        "expected": "",
+        "number": "99920089",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 12
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Starting: Intent { act=android.intent.action.CALL dat=tel:xxxxxxxx }",
+        "duration_ms": 197
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "pass"
+      },
+      {
+        "type": "done",
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T15:29:39.676380",
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "VoLTE to emergency call ",
+        "id": 11
+      },
+      {
+        "_isSection": false,
+        "action": "CALL",
+        "expected": "",
+        "number": "112",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 12
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Starting: Intent { act=android.intent.action.CALL dat=tel:xxx }",
+        "duration_ms": 147
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "pass"
+      },
+      {
+        "type": "done",
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T15:29:23.170035",
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "VoLTE to emergency call ",
+        "id": 11
+      },
+      {
+        "_isSection": false,
+        "action": "CALL",
+        "expected": "",
+        "number": "112",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 12
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Starting: Intent { act=android.intent.action.CALL dat=tel:xxx }",
+        "duration_ms": 155
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "pass"
+      },
+      {
+        "type": "done",
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T15:29:16.643385",
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "VoLTE to emergency call ",
+        "id": 11
+      },
+      {
+        "_isSection": false,
+        "action": "CALL",
+        "expected": "",
+        "number": "112",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 12
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Starting: Intent { act=android.intent.action.CALL dat=tel:xxx }",
+        "duration_ms": 150
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "pass"
+      },
+      {
+        "type": "done",
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T15:28:25.981781",
+    "total": 9,
+    "passed": 7,
+    "failed": 2,
+    "skipped": 0,
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": true,
+        "label": "VoLTE to international call *",
+        "id": 5
+      },
+      {
+        "_isSection": false,
+        "action": "CALL",
+        "expected": "",
+        "number": "*18002086177",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 6
+      },
+      {
+        "_isSection": false,
+        "action": "WAIT",
+        "expected": "",
+        "number": "5",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 7
+      },
+      {
+        "_isSection": false,
+        "action": "END_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 8
+      },
+      {
+        "_isSection": false,
+        "action": "CHECK_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 9
+      },
+      {
+        "_isSection": false,
+        "action": "WAIT",
+        "expected": "",
+        "number": "5",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 10
+      },
+      {
+        "_isSection": true,
+        "collapsed": true,
+        "label": "VoLTE to emergency call ",
+        "id": 11
+      },
+      {
+        "_isSection": false,
+        "action": "CALL",
+        "expected": "",
+        "number": "112",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 12
+      },
+      {
+        "_isSection": false,
+        "action": "WAIT",
+        "expected": "",
+        "number": "10",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 13
+      },
+      {
+        "_isSection": false,
+        "action": "END_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 14
+      },
+      {
+        "_isSection": false,
+        "action": "CHECK_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "",
+        "value2": "",
+        "id": 15
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to international call *"
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Starting: Intent { act=android.intent.action.CALL dat=tel:xxxxxxxxxxxx }",
+        "duration_ms": 154
+      },
+      {
+        "type": "step",
+        "step": 2,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5000
+      },
+      {
+        "type": "step",
+        "step": 3,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 130
+      },
+      {
+        "type": "step",
+        "step": 4,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "result": "fail",
+        "output": "Call to/from  found but duration=0 (call may not have connected)",
+        "screenshot": "fail_step4_CHECK_CALL_1785742114.png",
+        "duration_ms": 3947
+      },
+      {
+        "type": "step",
+        "step": 5,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5000
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to international call *",
+        "result": "fail"
+      },
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 6,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Starting: Intent { act=android.intent.action.CALL dat=tel:xxx }",
+        "duration_ms": 164
+      },
+      {
+        "type": "step",
+        "step": 7,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 10.0s",
+        "duration_ms": 10000
+      },
+      {
+        "type": "step",
+        "step": 8,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 151
+      },
+      {
+        "type": "step",
+        "step": 9,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "result": "fail",
+        "output": "Call to/from  found but duration=0 (call may not have connected)",
+        "screenshot": "fail_step9_CHECK_CALL_1785742133.png",
+        "duration_ms": 3332
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "fail"
+      },
+      {
+        "type": "done",
+        "total": 9,
+        "passed": 7,
+        "failed": 2,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T15:23:50.710400",
+    "total": 30,
+    "passed": 28,
+    "failed": 2,
+    "skipped": 0,
+    "steps": [
+      {
+        "id": 1,
+        "_isSection": true,
+        "label": "VoLTE to MTC 3G",
+        "collapsed": true
+      },
+      {
+        "id": 2,
+        "action": "SET_VOLTE",
+        "target": "Phone1",
+        "number": "",
+        "value": "on",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 7,
+        "action": "SET_NETWORK",
+        "target": "Phone2",
+        "number": "3G/2G (auto connect)",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 3,
+        "action": "CALL",
+        "target": "Phone1",
+        "number": "+97694001105",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 4,
+        "action": "ANSWER_CALL",
+        "target": "Phone2",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 5,
+        "action": "WAIT",
+        "target": "Phone1",
+        "number": "5",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 6,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 8,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "number": "+97694001105",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 26,
+        "_isSection": true,
+        "label": "VoLTE to international call 003",
+        "collapsed": true
+      },
+      {
+        "id": 27,
+        "action": "CALL",
+        "target": "Phone1",
+        "number": "+18002086177",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 28,
+        "action": "WAIT",
+        "target": "Phone1",
+        "number": "5",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 29,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 30,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 31,
+        "_isSection": true,
+        "label": "VoLTE to international call *",
+        "collapsed": true
+      },
+      {
+        "id": 32,
+        "action": "CALL",
+        "target": "Phone1",
+        "number": "*18002086177",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 33,
+        "action": "WAIT",
+        "target": "Phone1",
+        "number": "5",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 34,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 35,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 36,
+        "_isSection": true,
+        "label": "VoLTE to emergency call ",
+        "collapsed": true
+      },
+      {
+        "id": 37,
+        "action": "CALL",
+        "target": "Phone1",
+        "number": "112",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 38,
+        "action": "WAIT",
+        "target": "Phone1",
+        "number": "10",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 39,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 40,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 41,
+        "_isSection": true,
+        "label": "VoLTE SMS MO",
+        "collapsed": true
+      },
+      {
+        "id": 42,
+        "action": "SMS",
+        "target": "Phone1",
+        "number": "+97694001105",
+        "value": "volte test sms",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 44,
+        "action": "WAIT",
+        "target": "Phone1",
+        "number": "5",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 43,
+        "action": "CHECK_SMS",
+        "target": "Phone2",
+        "number": "+97695319902",
+        "value": "",
+        "value2": "",
+        "expected": "volte test sms",
+        "_isSection": false
+      },
+      {
+        "id": 45,
+        "_isSection": true,
+        "label": "VoLTE SMS M\u0422",
+        "collapsed": true
+      },
+      {
+        "id": 46,
+        "action": "SMS",
+        "target": "Phone2",
+        "number": "+97695319902",
+        "value": "volte test sms mt",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 47,
+        "action": "WAIT",
+        "target": "Phone1",
+        "number": "5",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 48,
+        "action": "CHECK_SMS",
+        "target": "Phone1",
+        "number": "+97694001105",
+        "value": "",
+        "value2": "",
+        "expected": "volte test sms mt",
+        "_isSection": false
+      },
+      {
+        "id": 50,
+        "_isSection": true,
+        "label": "USSD *#",
+        "collapsed": true
+      },
+      {
+        "id": 51,
+        "action": "USSD",
+        "target": "Phone1",
+        "number": "*1#",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 53,
+        "action": "USSD",
+        "target": "Phone1",
+        "number": "*2#",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 52,
+        "action": "USSD",
+        "target": "Phone1",
+        "number": "*211#",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 54,
+        "action": "USSD",
+        "target": "Phone1",
+        "number": "*210#",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 55,
+        "action": "USSD",
+        "target": "Phone1",
+        "number": "*1917#",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to MTC 3G"
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "SET_VOLTE",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "VoLTE already ON",
+        "duration_ms": 15311
+      },
+      {
+        "type": "step",
+        "step": 2,
+        "action": "SET_NETWORK",
+        "target": "Phone2",
+        "result": "pass",
+        "output": "Network type set to '3G/2G (auto connect)'",
+        "duration_ms": 15204
+      },
+      {
+        "type": "step",
+        "step": 3,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Starting: Intent { act=android.intent.action.CALL dat=tel:xxxxxxxxxxxx }",
+        "duration_ms": 153
+      },
+      {
+        "type": "step",
+        "step": 4,
+        "action": "ANSWER_CALL",
+        "target": "Phone2",
+        "result": "pass",
+        "output": "Call answered (HEADSETHOOK)",
+        "duration_ms": 8161,
+        "call_setup_ms": 8315
+      },
+      {
+        "type": "step",
+        "step": 5,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5000
+      },
+      {
+        "type": "step",
+        "step": 6,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 119
+      },
+      {
+        "type": "step",
+        "step": 7,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Call verified | duration=2s | type=OUTGOING | number=+97694001105",
+        "duration_ms": 2814
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to MTC 3G",
+        "result": "pass"
+      },
+      {
+        "type": "section",
+        "label": "VoLTE to international call 003"
+      },
+      {
+        "type": "step",
+        "step": 8,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Starting: Intent { act=android.intent.action.CALL dat=tel:xxxxxxxxxxxx }",
+        "duration_ms": 122
+      },
+      {
+        "type": "step",
+        "step": 9,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5000
+      },
+      {
+        "type": "step",
+        "step": 10,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 109
+      },
+      {
+        "type": "step",
+        "step": 11,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Call verified | duration=1s | type=OUTGOING | number=+18002086177",
+        "duration_ms": 2738
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to international call 003",
+        "result": "pass"
+      },
+      {
+        "type": "section",
+        "label": "VoLTE to international call *"
+      },
+      {
+        "type": "step",
+        "step": 12,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Starting: Intent { act=android.intent.action.CALL dat=tel:xxxxxxxxxxxx }",
+        "duration_ms": 156
+      },
+      {
+        "type": "step",
+        "step": 13,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5000
+      },
+      {
+        "type": "step",
+        "step": 14,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 120
+      },
+      {
+        "type": "step",
+        "step": 15,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "result": "fail",
+        "output": "Call to/from  found but duration=0 (call may not have connected)",
+        "screenshot": "fail_step15_CHECK_CALL_1785741893.png",
+        "duration_ms": 3871
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to international call *",
+        "result": "fail"
+      },
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 16,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Starting: Intent { act=android.intent.action.CALL dat=tel:xxx }",
+        "duration_ms": 151
+      },
+      {
+        "type": "step",
+        "step": 17,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 10.0s",
+        "duration_ms": 10000
+      },
+      {
+        "type": "step",
+        "step": 18,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 123
+      },
+      {
+        "type": "step",
+        "step": 19,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "result": "fail",
+        "output": "Call to/from  found but duration=0 (call may not have connected)",
+        "screenshot": "fail_step19_CHECK_CALL_1785741907.png",
+        "duration_ms": 3347
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "fail"
+      },
+      {
+        "type": "section",
+        "label": "VoLTE SMS MO"
+      },
+      {
+        "type": "step",
+        "step": 20,
+        "action": "SMS",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "SMS sent and verified | body=volte test sms",
+        "duration_ms": 7855
+      },
+      {
+        "type": "step",
+        "step": 21,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5000
+      },
+      {
+        "type": "step",
+        "step": 22,
+        "action": "CHECK_SMS",
+        "target": "Phone2",
+        "result": "pass",
+        "output": "volte test sms",
+        "duration_ms": 1992,
+        "sms_rtt_ms": 14849
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE SMS MO",
+        "result": "pass"
+      },
+      {
+        "type": "section",
+        "label": "VoLTE SMS M\u0422"
+      },
+      {
+        "type": "step",
+        "step": 23,
+        "action": "SMS",
+        "target": "Phone2",
+        "result": "pass",
+        "output": "SMS sent and verified | body=volte test sms mt",
+        "duration_ms": 9195
+      },
+      {
+        "type": "step",
+        "step": 24,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5000
+      },
+      {
+        "type": "step",
+        "step": 25,
+        "action": "CHECK_SMS",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "volte test sms mt",
+        "duration_ms": 1654,
+        "sms_rtt_ms": 15852
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE SMS M\u0422",
+        "result": "pass"
+      },
+      {
+        "type": "section",
+        "label": "USSD *#"
+      },
+      {
+        "type": "step",
+        "step": 26,
+        "action": "USSD",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "MSISDN: 97695319902",
+        "duration_ms": 12556
+      },
+      {
+        "type": "step",
+        "step": 27,
+        "action": "USSD",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "MSC Number is 97695310032, LAI is 42899797D",
+        "duration_ms": 11866
+      },
+      {
+        "type": "step",
+        "step": 28,
+        "action": "USSD",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Uuchlaarai, Tanii dugaar ene uilchilgeeg ashiglah bolomjgui baina.",
+        "duration_ms": 11989
+      },
+      {
+        "type": "step",
+        "step": 29,
+        "action": "USSD",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "1.Tulburiin medeelel\n2.Data bagtsiin uldegdel shalgah\n3.Data bagts\n4.Message roaming\n5.Stars dugaar tsenegleh",
+        "duration_ms": 12144
+      },
+      {
+        "type": "step",
+        "step": 30,
+        "action": "USSD",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Khan Bank \nMobile banknii nuuts\nkodoo oruulna uu:",
+        "duration_ms": 12025
+      },
+      {
+        "type": "section_result",
+        "label": "USSD *#",
+        "result": "pass"
+      },
+      {
+        "type": "done",
+        "total": 30,
+        "passed": 28,
+        "failed": 2,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T15:16:36.204026",
+    "total": 30,
+    "passed": 26,
+    "failed": 4,
+    "skipped": 0,
+    "steps": [
+      {
+        "id": 1,
+        "_isSection": true,
+        "label": "VoLTE to MTC 3G",
+        "collapsed": true
+      },
+      {
+        "id": 2,
+        "action": "SET_VOLTE",
+        "target": "Phone1",
+        "number": "",
+        "value": "on",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 7,
+        "action": "SET_NETWORK",
+        "target": "Phone2",
+        "number": "3G/2G (auto connect)",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 3,
+        "action": "CALL",
+        "target": "Phone1",
+        "number": "+97694001105",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 4,
+        "action": "ANSWER_CALL",
+        "target": "Phone2",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 5,
+        "action": "WAIT",
+        "target": "Phone1",
+        "number": "5",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 6,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 8,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "number": "+97694001105",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 26,
+        "_isSection": true,
+        "label": "VoLTE to international call 003",
+        "collapsed": true
+      },
+      {
+        "id": 27,
+        "action": "CALL",
+        "target": "Phone1",
+        "number": "+8688102546630",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 28,
+        "action": "WAIT",
+        "target": "Phone1",
+        "number": "5",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 29,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 30,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 31,
+        "_isSection": true,
+        "label": "VoLTE to international call *",
+        "collapsed": true
+      },
+      {
+        "id": 32,
+        "action": "CALL",
+        "target": "Phone1",
+        "number": "*8688102546630",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 33,
+        "action": "WAIT",
+        "target": "Phone1",
+        "number": "5",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 34,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 35,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 36,
+        "_isSection": true,
+        "label": "VoLTE to emergency call ",
+        "collapsed": true
+      },
+      {
+        "id": 37,
+        "action": "CALL",
+        "target": "Phone1",
+        "number": "103",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 38,
+        "action": "WAIT",
+        "target": "Phone1",
+        "number": "5",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 39,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 40,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 41,
+        "_isSection": true,
+        "label": "VoLTE SMS MO",
+        "collapsed": true
+      },
+      {
+        "id": 42,
+        "action": "SMS",
+        "target": "Phone1",
+        "number": "+97694001105",
+        "value": "volte test sms",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 44,
+        "action": "WAIT",
+        "target": "Phone1",
+        "number": "5",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 43,
+        "action": "CHECK_SMS",
+        "target": "Phone1",
+        "number": "+97694001105",
+        "value": "",
+        "value2": "",
+        "expected": "volte test sms",
+        "_isSection": false
+      },
+      {
+        "id": 45,
+        "_isSection": true,
+        "label": "VoLTE SMS M\u0422",
+        "collapsed": true
+      },
+      {
+        "id": 46,
+        "action": "SMS",
+        "target": "Phone2",
+        "number": "+97695319902",
+        "value": "volte test sms mt",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 47,
+        "action": "WAIT",
+        "target": "Phone1",
+        "number": "5",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 48,
+        "action": "CHECK_SMS",
+        "target": "Phone1",
+        "number": "+97694001105",
+        "value": "",
+        "value2": "",
+        "expected": "volte test sms mt",
+        "_isSection": false
+      },
+      {
+        "id": 50,
+        "_isSection": true,
+        "label": "USSD *#",
+        "collapsed": true
+      },
+      {
+        "id": 51,
+        "action": "USSD",
+        "target": "Phone1",
+        "number": "*1#",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 53,
+        "action": "USSD",
+        "target": "Phone1",
+        "number": "*2#",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 52,
+        "action": "USSD",
+        "target": "Phone1",
+        "number": "*211#",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 54,
+        "action": "USSD",
+        "target": "Phone1",
+        "number": "*210#",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "id": 55,
+        "action": "USSD",
+        "target": "Phone1",
+        "number": "*1917#",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      }
+    ],
+    "events": [
+      {
+        "type": "section",
+        "label": "VoLTE to MTC 3G"
+      },
+      {
+        "type": "step",
+        "step": 1,
+        "action": "SET_VOLTE",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "VoLTE already ON",
+        "duration_ms": 15426
+      },
+      {
+        "type": "step",
+        "step": 2,
+        "action": "SET_NETWORK",
+        "target": "Phone2",
+        "result": "pass",
+        "output": "Network type set to '3G/2G (auto connect)'",
+        "duration_ms": 16473
+      },
+      {
+        "type": "step",
+        "step": 3,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Starting: Intent { act=android.intent.action.CALL dat=tel:xxxxxxxxxxxx }",
+        "duration_ms": 176
+      },
+      {
+        "type": "step",
+        "step": 4,
+        "action": "ANSWER_CALL",
+        "target": "Phone2",
+        "result": "pass",
+        "output": "Call answered (HEADSETHOOK)",
+        "duration_ms": 8469,
+        "call_setup_ms": 8646
+      },
+      {
+        "type": "step",
+        "step": 5,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5002
+      },
+      {
+        "type": "step",
+        "step": 6,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 143
+      },
+      {
+        "type": "step",
+        "step": 7,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Call verified | duration=5s | type=OUTGOING | number=+97694001105",
+        "duration_ms": 2839
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to MTC 3G",
+        "result": "pass"
+      },
+      {
+        "type": "section",
+        "label": "VoLTE to international call 003"
+      },
+      {
+        "type": "step",
+        "step": 8,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Starting: Intent { act=android.intent.action.CALL dat=tel:xxxxxxxxxxxxxx }",
+        "duration_ms": 151
+      },
+      {
+        "type": "step",
+        "step": 9,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5000
+      },
+      {
+        "type": "step",
+        "step": 10,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 163
+      },
+      {
+        "type": "step",
+        "step": 11,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "result": "fail",
+        "output": "Call to/from  found but duration=0 (call may not have connected)",
+        "screenshot": "fail_step11_CHECK_CALL_1785741452.png",
+        "duration_ms": 4228
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to international call 003",
+        "result": "fail"
+      },
+      {
+        "type": "section",
+        "label": "VoLTE to international call *"
+      },
+      {
+        "type": "step",
+        "step": 12,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Starting: Intent { act=android.intent.action.CALL dat=tel:xxxxxxxxxxxxxx }",
+        "duration_ms": 155
+      },
+      {
+        "type": "step",
+        "step": 13,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5000
+      },
+      {
+        "type": "step",
+        "step": 14,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 118
+      },
+      {
+        "type": "step",
+        "step": 15,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "result": "fail",
+        "output": "Call to/from  found but duration=0 (call may not have connected)",
+        "screenshot": "fail_step15_CHECK_CALL_1785741462.png",
+        "duration_ms": 3902
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to international call *",
+        "result": "fail"
+      },
+      {
+        "type": "section",
+        "label": "VoLTE to emergency call "
+      },
+      {
+        "type": "step",
+        "step": 16,
+        "action": "CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Starting: Intent { act=android.intent.action.CALL dat=tel:xxx }",
+        "duration_ms": 146
+      },
+      {
+        "type": "step",
+        "step": 17,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5000
+      },
+      {
+        "type": "step",
+        "step": 18,
+        "action": "END_CALL",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "",
+        "duration_ms": 145
+      },
+      {
+        "type": "step",
+        "step": 19,
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "result": "fail",
+        "output": "Call to/from  found but duration=0 (call may not have connected)",
+        "screenshot": "fail_step19_CHECK_CALL_1785741472.png",
+        "duration_ms": 5066
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE to emergency call ",
+        "result": "fail"
+      },
+      {
+        "type": "section",
+        "label": "VoLTE SMS MO"
+      },
+      {
+        "type": "step",
+        "step": 20,
+        "action": "SMS",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "SMS sent and verified | body=volte test sms",
+        "duration_ms": 7866
+      },
+      {
+        "type": "step",
+        "step": 21,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5000
+      },
+      {
+        "type": "step",
+        "step": 22,
+        "action": "CHECK_SMS",
+        "target": "Phone1",
+        "result": "fail",
+        "output": "NULL, re_body=NULL, re_original_key=NULL, re_recipient_address=NULL, re_content_uri=NULL, re_content_type=NULL, re_file_name=NULL, re_type=0, re_count_info=NULL, re_count_info_custom_reaction=NULL, decorate_bubble_value=NULL, spam_type=0, block_filtered_status=NULL, predefined_id=-1, is_satellite=0, group_cotag=NULL, contains_otp=0, self_phone_number=NULL",
+        "screenshot": "fail_step22_CHECK_SMS_1785741489.png",
+        "duration_ms": 3886
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE SMS MO",
+        "result": "fail"
+      },
+      {
+        "type": "section",
+        "label": "VoLTE SMS M\u0422"
+      },
+      {
+        "type": "step",
+        "step": 23,
+        "action": "SMS",
+        "target": "Phone2",
+        "result": "pass",
+        "output": "SMS sent and verified | body=volte test sms mt",
+        "duration_ms": 9606
+      },
+      {
+        "type": "step",
+        "step": 24,
+        "action": "WAIT",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Waited 5.0s",
+        "duration_ms": 5000
+      },
+      {
+        "type": "step",
+        "step": 25,
+        "action": "CHECK_SMS",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "volte test sms mt",
+        "duration_ms": 1400,
+        "sms_rtt_ms": 16009
+      },
+      {
+        "type": "section_result",
+        "label": "VoLTE SMS M\u0422",
+        "result": "pass"
+      },
+      {
+        "type": "section",
+        "label": "USSD *#"
+      },
+      {
+        "type": "step",
+        "step": 26,
+        "action": "USSD",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "MSISDN: 97695319902",
+        "duration_ms": 12185
+      },
+      {
+        "type": "step",
+        "step": 27,
+        "action": "USSD",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "MSC Number is 97695310032, LAI is 42899797D",
+        "duration_ms": 11979
+      },
+      {
+        "type": "step",
+        "step": 28,
+        "action": "USSD",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Uuchlaarai, Tanii dugaar ene uilchilgeeg ashiglah bolomjgui baina.",
+        "duration_ms": 11977
+      },
+      {
+        "type": "step",
+        "step": 29,
+        "action": "USSD",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "1.Tulburiin medeelel\n2.Data bagtsiin uldegdel shalgah\n3.Data bagts\n4.Message roaming\n5.Stars dugaar tsenegleh",
+        "duration_ms": 12039
+      },
+      {
+        "type": "step",
+        "step": 30,
+        "action": "USSD",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "Khan Bank \nMobile banknii nuuts\nkodoo oruulna uu:",
+        "duration_ms": 12015
+      },
+      {
+        "type": "section_result",
+        "label": "USSD *#",
+        "result": "pass"
+      },
+      {
+        "type": "done",
+        "total": 30,
+        "passed": 26,
+        "failed": 4,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T11:18:50.865150",
+    "total": 1,
+    "passed": 0,
+    "failed": 1,
+    "skipped": 0,
+    "steps": [
+      {
+        "id": 0,
+        "action": "DP_MODIFY",
+        "target": "Phone1",
+        "number": "Phone2",
+        "value": "",
+        "value2": "100",
+        "expected": "",
+        "_isSection": false
+      }
+    ],
+    "events": [
+      {
+        "type": "step",
+        "step": 1,
+        "action": "DP_MODIFY",
+        "target": "Phone1",
+        "result": "fail",
+        "output": "DP_MODIFY error: timed out",
+        "duration_ms": 15028
+      },
+      {
+        "type": "done",
+        "total": 1,
+        "passed": 0,
+        "failed": 1,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T11:15:42.076364",
+    "total": 1,
+    "passed": 0,
+    "failed": 1,
+    "skipped": 0,
+    "steps": [
+      {
+        "id": 0,
+        "action": "DP_MODIFY",
+        "target": "Phone1",
+        "number": "Phone2",
+        "value": "",
+        "value2": "100",
+        "expected": "",
+        "_isSection": false
+      }
+    ],
+    "events": [
+      {
+        "type": "step",
+        "step": 1,
+        "action": "DP_MODIFY",
+        "target": "Phone1",
+        "result": "fail",
+        "output": "DP_MODIFY error: HTTP Error 500: Internal Server Error",
+        "duration_ms": 4474
+      },
+      {
+        "type": "done",
+        "total": 1,
+        "passed": 0,
+        "failed": 1,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T11:15:23.626405",
+    "total": 1,
+    "passed": 0,
+    "failed": 1,
+    "skipped": 0,
+    "steps": [
+      {
+        "id": 0,
+        "action": "DP_MODIFY",
+        "target": "Phone1",
+        "number": "Phone2",
+        "value": "",
+        "value2": "100",
+        "expected": "",
+        "_isSection": false
+      }
+    ],
+    "events": [
+      {
+        "type": "step",
+        "step": 1,
+        "action": "DP_MODIFY",
+        "target": "Phone1",
+        "result": "fail",
+        "output": "DP_MODIFY error: HTTP Error 500: Internal Server Error",
+        "duration_ms": 128
+      },
+      {
+        "type": "done",
+        "total": 1,
+        "passed": 0,
+        "failed": 1,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T11:11:31.307928",
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "id": 0,
+        "action": "DP_MODIFY",
+        "target": "Phone1",
+        "number": "Phone2",
+        "value": "",
+        "value2": "80",
+        "expected": "",
+        "_isSection": false
+      }
+    ],
+    "events": [
+      {
+        "type": "step",
+        "step": 1,
+        "action": "DP_MODIFY",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "{\n  \"message\": 5.64882755279541\n}",
+        "duration_ms": 6403
+      },
+      {
+        "type": "done",
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T11:10:27.289350",
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "id": 0,
+        "action": "DP_MODIFY",
+        "target": "Phone1",
+        "number": "Phone2",
+        "value": "",
+        "value2": "80",
+        "expected": "",
+        "_isSection": false
+      }
+    ],
+    "events": [
+      {
+        "type": "step",
+        "step": 1,
+        "action": "DP_MODIFY",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "{\n  \"message\": 5.55117130279541\n}",
+        "duration_ms": 1634
+      },
+      {
+        "type": "done",
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  },
+  {
+    "ts": "2026-08-03T11:09:36.849341",
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "steps": [
+      {
+        "id": 0,
+        "action": "DP_MODIFY",
+        "target": "Phone1",
+        "number": "Phone2",
+        "value": "",
+        "value2": "80",
+        "expected": "",
+        "_isSection": false
+      }
+    ],
+    "events": [
+      {
+        "type": "step",
+        "step": 1,
+        "action": "DP_MODIFY",
+        "target": "Phone1",
+        "result": "pass",
+        "output": "{\n  \"message\": 5.59999942779541\n}",
+        "duration_ms": 236
+      },
+      {
+        "type": "done",
+        "total": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      }
+    ]
+  }
+]

@@ -1,0 +1,945 @@
+[
+  {
+    "name": "VoLTE to MTC 2G",
+    "label": "VoLTE to MTC 2G",
+    "steps": [
+      {
+        "_isSection": true,
+        "label": "VoLTE to MTC 2G",
+        "collapsed": false
+      },
+      {
+        "action": "SET_VOLTE",
+        "target": "Phone1",
+        "number": "",
+        "value": "on",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "SET_NETWORK",
+        "target": "Phone2",
+        "number": "3G/2G (auto connect)",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "CALL",
+        "target": "Phone1",
+        "number": "+97694001105",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "ANSWER_CALL",
+        "target": "Phone2",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "WAIT",
+        "target": "Phone1",
+        "number": "5",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "END_CALL",
+        "target": "Phone1",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "number": "+97694001105",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      }
+    ]
+  },
+  {
+    "name": "USSD *1#",
+    "label": "USSD *1#",
+    "steps": [
+      {
+        "_isSection": true,
+        "label": "USSD *1#",
+        "collapsed": false
+      },
+      {
+        "action": "USSD",
+        "target": "Phone1",
+        "number": "*1#",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "USSD",
+        "target": "Phone1",
+        "number": "*2#",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "USSD",
+        "target": "Phone1",
+        "number": "*211#",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "USSD",
+        "target": "Phone1",
+        "number": "*210#",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "USSD",
+        "target": "Phone1",
+        "number": "*1917#",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      }
+    ]
+  },
+  {
+    "name": "USSD *#",
+    "label": "USSD *#",
+    "steps": [
+      {
+        "_isSection": true,
+        "label": "USSD *#",
+        "collapsed": false
+      },
+      {
+        "action": "USSD",
+        "target": "Phone1",
+        "number": "*1#",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "USSD",
+        "target": "Phone1",
+        "number": "*2#",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "USSD",
+        "target": "Phone1",
+        "number": "*211#",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "USSD",
+        "target": "Phone1",
+        "number": "*210#",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "USSD",
+        "target": "Phone1",
+        "number": "*1917#",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      }
+    ]
+  },
+  {
+    "name": "VoLTE SMS MO",
+    "label": "VoLTE SMS MO",
+    "steps": [
+      {
+        "_isSection": true,
+        "label": "VoLTE SMS MO",
+        "collapsed": false
+      },
+      {
+        "action": "SMS",
+        "target": "Phone1",
+        "number": "+97694001105",
+        "value": "volte test sms",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "WAIT",
+        "target": "Phone1",
+        "number": "5",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "CHECK_SMS",
+        "target": "Phone2",
+        "number": "+97695319902",
+        "value": "",
+        "value2": "",
+        "expected": "volte test sms",
+        "_isSection": false
+      }
+    ]
+  },
+  {
+    "name": "VoLTE SMS M\u0422",
+    "label": "VoLTE SMS M\u0422",
+    "steps": [
+      {
+        "_isSection": true,
+        "label": "VoLTE SMS M\u0422",
+        "collapsed": false
+      },
+      {
+        "action": "SMS",
+        "target": "Phone2",
+        "number": "+97695319902",
+        "value": "volte test sms mt",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "WAIT",
+        "target": "Phone1",
+        "number": "5",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "CHECK_SMS",
+        "target": "Phone1",
+        "number": "+97694001105",
+        "value": "",
+        "value2": "",
+        "expected": "volte test sms mt",
+        "_isSection": false
+      }
+    ]
+  },
+  {
+    "name": "VoLTE to emergency call",
+    "label": "VoLTE to emergency call ",
+    "steps": [
+      {
+        "_isSection": true,
+        "label": "VoLTE to emergency call ",
+        "collapsed": false
+      },
+      {
+        "action": "CALL",
+        "target": "Phone1",
+        "number": "112",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "WAIT",
+        "target": "Phone1",
+        "number": "10",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "END_CALL",
+        "target": "Phone1",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      }
+    ]
+  },
+  {
+    "name": "VoLTE to international call 003",
+    "label": "VoLTE to international call 003",
+    "steps": [
+      {
+        "_isSection": true,
+        "label": "VoLTE to international call 003",
+        "collapsed": false
+      },
+      {
+        "action": "CALL",
+        "target": "Phone1",
+        "number": "+18002086177",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "WAIT",
+        "target": "Phone1",
+        "number": "5",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "END_CALL",
+        "target": "Phone1",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      }
+    ]
+  },
+  {
+    "name": "VoLTE to international call *",
+    "label": "VoLTE to international call *",
+    "steps": [
+      {
+        "_isSection": true,
+        "label": "VoLTE to international call *",
+        "collapsed": false
+      },
+      {
+        "action": "CALL",
+        "target": "Phone1",
+        "number": "*18002086177",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "WAIT",
+        "target": "Phone1",
+        "number": "5",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "END_CALL",
+        "target": "Phone1",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "WAIT",
+        "target": "Phone1",
+        "number": "5",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      }
+    ]
+  },
+  {
+    "name": "CSFB MOC",
+    "label": "CSFB MOC",
+    "steps": [
+      {
+        "_isSection": true,
+        "label": "CSFB MOC",
+        "collapsed": false
+      },
+      {
+        "action": "SET_NETWORK",
+        "target": "Phone1",
+        "number": "4G",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "CALL",
+        "target": "Phone1",
+        "number": "+97694001105",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "CHECK_NETWORK",
+        "target": "Phone1",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "END_CALL",
+        "target": "Phone1",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      }
+    ]
+  },
+  {
+    "name": "CSFB MTC",
+    "label": "CSFB MTC",
+    "steps": [
+      {
+        "_isSection": true,
+        "label": "CSFB MTC",
+        "collapsed": false
+      },
+      {
+        "action": "SET_VOLTE",
+        "target": "Phone2",
+        "number": "",
+        "value": "off",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "SET_NETWORK",
+        "target": "Phone2",
+        "number": "LTE/3G/2G (auto connect)",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "CALL",
+        "target": "Phone1",
+        "number": "+97694001105",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "CHECK_NETWORK",
+        "target": "Phone2",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "END_CALL",
+        "target": "Phone1",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      }
+    ]
+  },
+  {
+    "name": "MOC 3G to 2222",
+    "label": "MOC 3G to 2222",
+    "steps": [
+      {
+        "_isSection": true,
+        "label": "MOC 3G to 2222",
+        "collapsed": false
+      },
+      {
+        "action": "CALL",
+        "target": "Phone1",
+        "number": "2222",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "WAIT",
+        "target": "Phone1",
+        "number": "10",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "END_CALL",
+        "target": "Phone1",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "CHECK_CALL",
+        "target": "Phone1",
+        "number": "2222",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      }
+    ]
+  },
+  {
+    "name": "3G SMS MO",
+    "label": "3G SMS MO",
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "3G SMS MO"
+      },
+      {
+        "action": "SET_NETWORK",
+        "target": "Phone1",
+        "number": "3G",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "_isSection": false,
+        "action": "SMS",
+        "expected": "",
+        "number": "+97694001105",
+        "target": "Phone1",
+        "value": "3G test sms mo",
+        "value2": ""
+      },
+      {
+        "_isSection": false,
+        "action": "WAIT",
+        "expected": "",
+        "number": "5",
+        "target": "Phone1",
+        "value": "",
+        "value2": ""
+      },
+      {
+        "_isSection": false,
+        "action": "CHECK_SMS",
+        "expected": "3G test sms mo",
+        "number": "+97695319902",
+        "target": "Phone2",
+        "value": "",
+        "value2": ""
+      }
+    ]
+  },
+  {
+    "name": "3G to 3G MT call",
+    "label": "3G to 3G MT call",
+    "steps": [
+      {
+        "_isSection": true,
+        "label": "3G to 3G MT call",
+        "collapsed": false
+      },
+      {
+        "action": "CALL",
+        "target": "Phone1",
+        "number": "+97694001105",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "ANSWER_CALL",
+        "target": "Phone2",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "WAIT",
+        "target": "Phone1",
+        "number": "5",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "END_CALL",
+        "target": "Phone1",
+        "number": "",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "action": "CHECK_CALL",
+        "target": "Phone2",
+        "number": "+97695319902",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      }
+    ]
+  },
+  {
+    "name": "MOC 3G to VoLTE",
+    "label": "MOC 3G to VoLTE",
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "MOC 3G to VoLTE"
+      },
+      {
+        "_isSection": false,
+        "action": "SET_VOLTE",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "off",
+        "value2": ""
+      },
+      {
+        "_isSection": false,
+        "action": "SET_VOLTE",
+        "expected": "",
+        "number": "",
+        "target": "Phone2",
+        "value": "on",
+        "value2": ""
+      },
+      {
+        "_isSection": false,
+        "action": "SET_NETWORK",
+        "expected": "",
+        "number": "3G preferred",
+        "target": "Phone1",
+        "value": "",
+        "value2": ""
+      },
+      {
+        "_isSection": false,
+        "action": "WAIT",
+        "expected": "",
+        "number": "5",
+        "target": "Phone1",
+        "value": "",
+        "value2": ""
+      },
+      {
+        "_isSection": false,
+        "action": "CALL",
+        "expected": "",
+        "number": "+97694001105",
+        "target": "Phone1",
+        "value": "",
+        "value2": ""
+      },
+      {
+        "_isSection": false,
+        "action": "ANSWER_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone2",
+        "value": "",
+        "value2": ""
+      },
+      {
+        "_isSection": false,
+        "action": "WAIT",
+        "expected": "",
+        "number": "5",
+        "target": "Phone1",
+        "value": "",
+        "value2": ""
+      },
+      {
+        "_isSection": false,
+        "action": "END_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "",
+        "value2": ""
+      },
+      {
+        "_isSection": false,
+        "action": "CHECK_CALL",
+        "expected": "",
+        "number": "+97694001105",
+        "target": "Phone1",
+        "value": "",
+        "value2": ""
+      }
+    ]
+  },
+  {
+    "name": "CSFB finish call",
+    "label": "CSFB finish call",
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "CSFB finish call"
+      },
+      {
+        "_isSection": false,
+        "action": "CALL",
+        "expected": "",
+        "number": "+97694001105",
+        "target": "Phone1",
+        "value": "",
+        "value2": ""
+      },
+      {
+        "_isSection": false,
+        "action": "CHECK_NETWORK",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "",
+        "value2": ""
+      },
+      {
+        "action": "WAIT",
+        "target": "Phone1",
+        "number": "5",
+        "value": "",
+        "value2": "",
+        "expected": "",
+        "_isSection": false
+      },
+      {
+        "_isSection": false,
+        "action": "ANSWER_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone2",
+        "value": "",
+        "value2": ""
+      },
+      {
+        "_isSection": false,
+        "action": "CHECK_NETWORK",
+        "expected": "",
+        "number": "",
+        "target": "Phone2",
+        "value": "",
+        "value2": ""
+      },
+      {
+        "_isSection": false,
+        "action": "WAIT",
+        "expected": "",
+        "number": "5",
+        "target": "Phone1",
+        "value": "",
+        "value2": ""
+      },
+      {
+        "_isSection": false,
+        "action": "END_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "",
+        "value2": ""
+      },
+      {
+        "_isSection": false,
+        "action": "CHECK_CALL",
+        "expected": "",
+        "number": "+97694001105",
+        "target": "Phone1",
+        "value": "",
+        "value2": ""
+      }
+    ]
+  },
+  {
+    "name": "3G to 3G MO call",
+    "label": "3G to 3G MO call",
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "3G to 3G MO call"
+      },
+      {
+        "_isSection": false,
+        "action": "CALL",
+        "expected": "",
+        "number": "+97694001105",
+        "target": "Phone1",
+        "value": "",
+        "value2": ""
+      },
+      {
+        "_isSection": false,
+        "action": "ANSWER_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone2",
+        "value": "",
+        "value2": ""
+      },
+      {
+        "_isSection": false,
+        "action": "WAIT",
+        "expected": "",
+        "number": "10",
+        "target": "Phone1",
+        "value": "",
+        "value2": ""
+      },
+      {
+        "_isSection": false,
+        "action": "END_CALL",
+        "expected": "",
+        "number": "",
+        "target": "Phone1",
+        "value": "",
+        "value2": ""
+      },
+      {
+        "_isSection": false,
+        "action": "CHECK_CALL",
+        "expected": "",
+        "number": "+97694001105",
+        "target": "Phone1",
+        "value": "",
+        "value2": ""
+      }
+    ]
+  },
+  {
+    "name": "3G SMS MT",
+    "label": "3G SMS MT",
+    "steps": [
+      {
+        "_isSection": true,
+        "collapsed": false,
+        "label": "3G SMS MT"
+      },
+      {
+        "_isSection": false,
+        "action": "SET_NETWORK",
+        "expected": "",
+        "number": "3G only",
+        "target": "Phone2",
+        "value": "",
+        "value2": ""
+      },
+      {
+        "_isSection": false,
+        "action": "SMS",
+        "expected": "",
+        "number": "+97695319902",
+        "target": "Phone2",
+        "value": "3G test sms mt",
+        "value2": ""
+      },
+      {
+        "_isSection": false,
+        "action": "WAIT",
+        "expected": "",
+        "number": "10",
+        "target": "Phone1",
+        "value": "",
+        "value2": ""
+      },
+      {
+        "_isSection": false,
+        "action": "CHECK_SMS",
+        "expected": "3G test sms mt",
+        "number": "+97694001105",
+        "target": "Phone1",
+        "value": "",
+        "value2": ""
+      }
+    ]
+  }
+]
