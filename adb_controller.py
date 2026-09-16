@@ -1949,14 +1949,19 @@ def set_airplane_mode(serial: str, state: str, wait_secs: int = 8) -> Result:
     val  = "1" if turning_on else "0"
     flag = "true" if turning_on else "false"
 
-    ok, out = _run(_serial_args(serial) + ["shell", "settings", "put", "global", "airplane_mode_on", val])
-    if not ok:
-        return False, out
-    _run(_serial_args(serial) + [
-        "shell", "am", "broadcast",
-        "-a", "android.intent.action.AIRPLANE_MODE",
-        "--ez", "state", flag,
+    # Try Android 11+ cmd connectivity first (actually changes system state visibly)
+    ok, out = _run(_serial_args(serial) + [
+        "shell", "cmd", "connectivity", "airplane-mode",
+        "enable" if turning_on else "disable",
     ])
+    if not ok or "Error" in out or "Unknown" in out:
+        # Fallback: settings + broadcast (Android 9/10)
+        _run(_serial_args(serial) + ["shell", "settings", "put", "global", "airplane_mode_on", val])
+        _run(_serial_args(serial) + [
+            "shell", "am", "broadcast",
+            "-a", "android.intent.action.AIRPLANE_MODE",
+            "--ez", "state", flag,
+        ])
 
     if turning_on:
         return True, "Airplane mode ON"
@@ -2103,8 +2108,36 @@ def download_file(serial: str, url: str, expected_mb: float = 0, timeout: int = 
     return False, f"Download timeout ({timeout}s) — '{fname_hint}' may be incomplete"
 
 
-def open_browser(serial: str, url: str, wait_secs: int = 8) -> Result:
-    """Open a URL in the default browser and wait to verify it loaded."""
+def download_file(serial: str, url: str, timeout_secs: int = 60,
+                  timeout: int = 0, expected_mb: float = 0.0) -> tuple[bool, str]:
+    """Download url on device via curl (discard data) to generate traffic.
+    timeout overrides timeout_secs if provided. expected_mb is used only for reporting.
+    Returns (ok, summary_string).
+    """
+    t = timeout or timeout_secs
+    args = _serial_args(serial) + [
+        "shell", "curl", "-o", "/dev/null", "-s", "-w",
+        r"%{http_code} %{size_download}B in %{time_total}s",
+        "--max-time", str(t), url,
+    ]
+    ok, out = _run(args, timeout=t + 5)
+    summary = out.strip()
+    if ok and summary:
+        if expected_mb:
+            summary += f" (expected ~{expected_mb}MB)"
+        return True, summary
+    # fallback: wget
+    args2 = _serial_args(serial) + [
+        "shell", "wget", "-O", "/dev/null", "-q", "--timeout", str(t), url,
+    ]
+    ok2, out2 = _run(args2, timeout=t + 5)
+    return ok2, out2.strip() or f"wget exit ok={ok2}"
+
+
+def open_browser(serial: str, url: str, wait_secs: int = 8,
+                 screenshot_dir: str = "") -> Result:
+    """Open a URL in the default browser, wait to verify it loaded, then screenshot."""
+    import os as _os
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
     ok, out = _run(_serial_args(serial) + [
@@ -2115,9 +2148,21 @@ def open_browser(serial: str, url: str, wait_secs: int = 8) -> Result:
     if not ok:
         return False, out
 
-    # Wait for page to load then verify result
     time.sleep(wait_secs)
-    return check_browser(serial, expected="", wait_secs=0)
+    ok_b, browser_out = check_browser(serial, expected="", wait_secs=0)
+
+    # Take screenshot
+    shot_token = ""
+    if screenshot_dir:
+        _os.makedirs(screenshot_dir, exist_ok=True)
+        import re as _re, time as _t
+        fname = _re.sub(r"[^\w]", "_", url)[:40] + f"_{int(_t.time())}.png"
+        save_path = _os.path.join(screenshot_dir, fname)
+        ok_s, _ = screenshot(serial, save_path)
+        if ok_s:
+            shot_token = f"\n[screenshot:{save_path}]"
+
+    return ok_b, browser_out + shot_token
 
 
 def check_browser(serial: str, expected: str = "", wait_secs: int = 5) -> Result:
@@ -2342,38 +2387,407 @@ def run_speedtest(serial: str, wait_secs: int = 60) -> Result:
     return False, f"Speedtest тест дууссан боловч үр дүн олдсонгүй ({wait_secs}s хүлээсэн)"
 
 
-def set_apn(serial: str, apn_name: str, apn_value: str,
-            mcc_mnc: str = "", apn_type: str = "default,supl") -> Result:
-    """Insert an APN entry via the telephony content provider."""
+def _select_apn_via_settings(serial: str, apn_name: str) -> str:
+    """Open APN settings UI and tap the row matching apn_name. Returns status string."""
     import time as _time
 
-    # Detect MCC+MNC if not supplied
+    args = _serial_args(serial)
+
+    # Open APN settings — try multiple known intents
+    opened = False
+    for intent in [
+        ["shell", "am", "start", "-a", "android.intent.action.MAIN",
+         "-n", "com.android.settings/.Settings$ApnSettingsActivity"],
+        ["shell", "am", "start", "-a", "android.settings.APN_SETTINGS"],
+        ["shell", "am", "start", "-a", "android.intent.action.MAIN",
+         "-n", "com.android.phone/.settings.ApnSettings"],
+    ]:
+        ok, out = _run(args + intent, timeout=5)
+        if ok and "Error" not in out and "does not exist" not in out:
+            opened = True
+            break
+
+    if not opened:
+        return "⚠ could not open APN settings"
+
+    _time.sleep(2)
+
+    # Dump UI and find the APN row by name
+    _run(args + ["shell", "uiautomator", "dump", "/sdcard/_apn.xml"], timeout=10)
+    _, dump = _run(args + ["shell", "cat", "/sdcard/_apn.xml"], timeout=5)
+
+    # Find node containing apn_name text
+    found = None
+    for node in re.finditer(r"<node\b[^>]*>", dump or ""):
+        n = node.group(0)
+        if apn_name.lower() in n.lower() and 'bounds=' in n:
+            m = re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', n)
+            if m:
+                found = (int(m.group(1)) + int(m.group(3))) // 2, \
+                        (int(m.group(2)) + int(m.group(4))) // 2
+                break
+
+    if not found:
+        _run(args + ["shell", "input", "keyevent", "KEYCODE_BACK"], timeout=3)
+        return f"⚠ APN '{apn_name}' not found in settings UI"
+
+    _run(args + ["shell", "input", "tap", str(found[0]), str(found[1])], timeout=5)
+    _time.sleep(1)
+    _run(args + ["shell", "input", "keyevent", "KEYCODE_BACK"], timeout=3)
+    _time.sleep(0.5)
+    _run(args + ["shell", "input", "keyevent", "KEYCODE_BACK"], timeout=3)
+    return f"✓ selected via Settings UI"
+
+
+def get_preferred_apn_id(serial: str) -> Result:
+    """Return the _id of the current preferred APN."""
+    ok, out = _run(_serial_args(serial) + [
+        "shell", "content", "query",
+        "--uri", "content://telephony/carriers/preferapn",
+        "--projection", "_id",
+    ])
+    m = re.search(r"_id=(\d+)", out)
+    if m:
+        return True, m.group(1)
+    return False, "No preferred APN found"
+
+
+def set_preferred_apn_by_id(serial: str, apn_id: str) -> Result:
+    """Set preferred APN by its _id."""
+    ok, out = _run(_serial_args(serial) + [
+        "shell", "content", "update",
+        "--uri", "content://telephony/carriers/preferapn",
+        "--bind", f"apn_id:i:{apn_id}",
+    ])
+    return ok, out
+
+
+def _find_apn_id_by_name(serial: str, apn_name: str, mcc_mnc: str) -> str | None:
+    """Return _id of first APN matching apn_name for this carrier, or None."""
+    _, out = _run(_serial_args(serial) + [
+        "shell", "content", "query",
+        "--uri", "content://telephony/carriers",
+        "--where", f"numeric='{mcc_mnc}'",
+        "--projection", "_id:name",
+    ])
+    for line in out.splitlines():
+        if f"name={apn_name}" in line or f"name={apn_name}," in line:
+            m = re.search(r"_id=(\d+)", line)
+            if m:
+                return m.group(1)
+    return None
+
+
+def set_apn(serial: str, apn_name: str, apn_value: str,
+            mcc_mnc: str = "", apn_type: str = "default,supl") -> Result:
+    """Set APN as preferred. Reuses existing entry if found, else inserts a new one."""
+    import time as _time
+
     if not mcc_mnc:
         _, mccmnc_raw = _run(_serial_args(serial) + ["shell", "getprop", "gsm.operator.numeric"])
-        mcc_mnc = mccmnc_raw.strip()[:6]
+        mcc_mnc = mccmnc_raw.strip().split(",")[0][:6]
 
     if not mcc_mnc:
-        return False, "Could not detect MCC+MNC — provide it manually (e.g. 42899)"
+        return False, "Could not detect MCC+MNC"
 
-    uri = "content://telephony/carriers"
-    ok, out = _run(_serial_args(serial) + [
-        "shell", "content", "insert",
-        "--uri", uri,
-        "--bind", f"name:s:{apn_name}",
-        "--bind", f"apn:s:{apn_value}",
-        "--bind", f"numeric:s:{mcc_mnc}",
-        "--bind", f"mcc:s:{mcc_mnc[:3]}",
-        "--bind", f"mnc:s:{mcc_mnc[3:]}",
-        "--bind", f"type:s:{apn_type}",
-        "--bind", "protocol:s:IPV4V6",
-        "--bind", "roaming_protocol:s:IPV4V6",
-        "--bind", "carrier_enabled:i:1",
+    # Check if APN already exists by name (query all for this carrier, filter in Python)
+    apn_id = _find_apn_id_by_name(serial, apn_name, mcc_mnc)
+    reused = apn_id is not None
+
+    if not apn_id:
+        # APN doesn't exist — insert it
+        ok, out = _run(_serial_args(serial) + [
+            "shell", "content", "insert",
+            "--uri", "content://telephony/carriers",
+            "--bind", f"name:s:{apn_name}",
+            "--bind", f"apn:s:{apn_value}",
+            "--bind", f"numeric:s:{mcc_mnc}",
+            "--bind", f"mcc:s:{mcc_mnc[:3]}",
+            "--bind", f"mnc:s:{mcc_mnc[3:]}",
+            "--bind", f"type:s:{apn_type}",
+            "--bind", "protocol:s:IPV4V6",
+            "--bind", "roaming_protocol:s:IPV4V6",
+            "--bind", "carrier_enabled:i:1",
+        ])
+        if not ok:
+            return False, out
+        _time.sleep(1)
+        apn_id = _find_apn_id_by_name(serial, apn_name, mcc_mnc)
+        if not apn_id:
+            return False, f"Inserted APN '{apn_name}' but could not find its _id"
+
+    # Set as preferred
+    _run(_serial_args(serial) + [
+        "shell", "content", "update",
+        "--uri", "content://telephony/carriers/preferapn",
+        "--bind", f"apn_id:i:{apn_id}",
     ])
+
+    # Verify
+    _, vout = _run(_serial_args(serial) + [
+        "shell", "content", "query",
+        "--uri", "content://telephony/carriers/preferapn",
+        "--projection", "_id:name",
+    ])
+    confirmed = f"_id={apn_id}" in vout or f"name={apn_name}" in vout
+    status = "✓" if confirmed else f"⚠ preferapn={vout.strip()[:60]}"
+    action = "reused" if reused else "inserted"
+
+    return True, f"APN '{apn_name}' set as preferred (id={apn_id}, {action}) {status}"
+
+
+def delete_apn_by_name(serial: str, apn_name: str) -> Result:
+    """Delete APN entry matching the display name (looks up _id first)."""
+    _, mccmnc_raw = _run(_serial_args(serial) + ["shell", "getprop", "gsm.operator.numeric"])
+    mcc_mnc = mccmnc_raw.strip().split(",")[0][:6]
+    apn_id = _find_apn_id_by_name(serial, apn_name, mcc_mnc) if mcc_mnc else None
+    if not apn_id:
+        return False, f"APN '{apn_name}' not found"
+    ok, out = _run(_serial_args(serial) + [
+        "shell", "content", "delete",
+        "--uri", "content://telephony/carriers",
+        "--where", f"_id={apn_id}",
+    ])
+    if ok:
+        return True, f"Deleted APN '{apn_name}' (id={apn_id})"
+    return False, out
+
+
+def check_connectivity(serial: str, ip: str, port: str = "") -> Result:
+    """Ping IP 3 times and show individual results. If port given, also do TCP check."""
+    # Ping 3 times
+    ok_ping, ping_out = _run(
+        _serial_args(serial) + ["shell", "ping", "-c", "3", "-W", "2", ip],
+        timeout=20,
+    )
+    ping_lines = [ln for ln in ping_out.splitlines()
+                  if "bytes from" in ln or "Request timeout" in ln or "unreachable" in ln.lower()]
+    loss_m = re.search(r"(\d+)% packet loss", ping_out)
+    loss = int(loss_m.group(1)) if loss_m else 100
+    rtt_m = re.search(r"rtt.*?=\s*([\d.]+)/([\d.]+)/([\d.]+)", ping_out)
+    rtt_summary = f"avg={rtt_m.group(2)}ms" if rtt_m else ""
+
+    ping_result = "\n".join(ping_lines) if ping_lines else ping_out.strip()[:120]
+    summary = f"Ping {ip} — {loss}% loss" + (f" {rtt_summary}" if rtt_summary else "")
+
+    if port:
+        ok_tcp, tcp_out = _run(
+            _serial_args(serial) + [
+                "shell", f"nc -w 3 {ip} {port} < /dev/null; echo __exit:$?",
+            ],
+            timeout=10,
+        )
+        m = re.search(r"__exit:(\d+)", tcp_out)
+        exit_code = int(m.group(1)) if m else (0 if ok_tcp else 1)
+        err = tcp_out.replace(f"__exit:{exit_code}", "").strip()
+        if exit_code == 0:
+            tcp_note = f"TCP :{port} open"
+        elif "refused" in err.lower():
+            tcp_note = f"TCP :{port} refused (host up)"
+        else:
+            tcp_note = f"TCP :{port} unreachable"
+        full_msg = f"{summary} | {tcp_note}\n{ping_result}"
+        overall_ok = loss < 100 or exit_code == 0 or "refused" in err.lower()
+        return overall_ok, full_msg
+
+    full_msg = f"{summary}\n{ping_result}"
+    return loss < 100, full_msg
+
+
+def port_scan(serial: str, ip: str, ports: str, timeout_secs: int = 2) -> tuple[bool, str]:
+    """Scan ports on IP from the device using nc. ports = '80,443,8000-8100' etc."""
+    # Parse port list
+    port_list: list[int] = []
+    for part in ports.split(","):
+        part = part.strip()
+        if "-" in part:
+            try:
+                a, b = part.split("-", 1)
+                port_list.extend(range(int(a), int(b) + 1))
+            except ValueError:
+                pass
+        elif part.isdigit():
+            port_list.append(int(part))
+
+    if not port_list:
+        return False, "No valid ports specified"
+    if len(port_list) > 200:
+        return False, f"Too many ports ({len(port_list)}), limit 200"
+
+    open_ports: list[int] = []
+    refused_ports: list[int] = []
+    filtered_ports: list[int] = []
+
+    for port in port_list:
+        ok, out = _run(
+            _serial_args(serial) + [
+                "shell", f"nc -w {timeout_secs} {ip} {port} < /dev/null; echo __exit:$?",
+            ],
+            timeout=timeout_secs + 3,
+        )
+        m = re.search(r"__exit:(\d+)", out)
+        exit_code = int(m.group(1)) if m else (0 if ok else 1)
+        err = out.replace(f"__exit:{exit_code}", "").strip().lower()
+        if exit_code == 0:
+            open_ports.append(port)
+        elif "refused" in err:
+            refused_ports.append(port)
+        else:
+            filtered_ports.append(port)
+
+    lines = [f"Port scan {ip} — {len(port_list)} ports checked"]
+    if open_ports:
+        lines.append(f"  OPEN    : {', '.join(str(p) for p in open_ports)}")
+    if refused_ports:
+        lines.append(f"  REFUSED : {', '.join(str(p) for p in refused_ports)}")
+    if filtered_ports:
+        lines.append(f"  FILTERED: {', '.join(str(p) for p in filtered_ports)}")
+
+    any_reachable = bool(open_ports or refused_ports)
+    return any_reachable, "\n".join(lines)
+
+
+def get_mobile_ip(serial: str) -> Result:
+    """Return the IP address on the active mobile data interface (rmnet/ccmni/wwan)."""
+    ok, out = _run(_serial_args(serial) + ["shell", "ip", "-4", "addr", "show"], timeout=5)
     if not ok:
         return False, out
+    current = ""
+    for line in out.splitlines():
+        m = re.match(r"\d+:\s+(\S+?)[@:]", line)
+        if m:
+            current = m.group(1)
+        if re.search(r"rmnet|ccmni|pdp|wwan", current, re.I):
+            m = re.search(r"inet\s+([\d.]+)", line)
+            if m:
+                return True, f"{m.group(1)} ({current})"
+    return False, "No mobile data IP found"
 
-    _time.sleep(1)
-    return True, f"APN '{apn_name}' ({apn_value}) added for MCC+MNC {mcc_mnc}"
+
+def pingtools_check(serial: str, ip: str, port: str = "") -> Result:
+    """Launch PingTools, open drawer, tap Ping, enter IP, tap Start, wait 10s, read results."""
+    import time as _time
+
+    args = _serial_args(serial)
+    PKG = "ua.com.streamsoft.pingtools"
+    PING_RES_ID = f"{PKG}:id/pingFragment"
+
+    def _dump():
+        _run(args + ["shell", "uiautomator", "dump", "/sdcard/_pt.xml"], timeout=10)
+        _, out = _run(args + ["shell", "cat", "/sdcard/_pt.xml"], timeout=5)
+        return out or ""
+
+    def _find(dump, text=None, res_id=None, cls=None, desc=None):
+        for node in re.finditer(r"<node\b[^>]*>", dump):
+            n = node.group(0)
+            if text is not None and f'text="{text}"' not in n:
+                continue
+            if res_id is not None and f'resource-id="{res_id}"' not in n:
+                continue
+            if cls is not None and f'class="{cls}"' not in n:
+                continue
+            if desc is not None and f'content-desc="{desc}"' not in n:
+                continue
+            m = re.search(r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', n)
+            if m:
+                return (int(m.group(1)) + int(m.group(3))) // 2, \
+                       (int(m.group(2)) + int(m.group(4))) // 2
+        return None
+
+    def _tap(xy):
+        _run(args + ["shell", "input", "tap", str(xy[0]), str(xy[1])], timeout=5)
+        _time.sleep(0.7)
+
+    def _clear_and_type(xy, text):
+        _tap(xy)
+        _time.sleep(0.5)
+        # Move to end then fire 40 backspaces in one shell call to clear any existing text
+        del_seq = "input keyevent KEYCODE_MOVE_END; " + "input keyevent KEYCODE_DEL; " * 40
+        _run(args + ["shell", del_seq], timeout=15)
+        _time.sleep(0.4)
+        _run(args + ["shell", "input", "text", text], timeout=5)
+        _time.sleep(0.3)
+
+    # ── verify installed ─────────────────────────────────────────────────────
+    ok, out = _run(args + ["shell", "pm", "list", "packages"], timeout=10)
+    if PKG not in out:
+        return False, f"PingTools ({PKG}) not found on device"
+
+    # ── clear logcat so only fresh ping output is captured later ─────────────
+    _run(args + ["logcat", "-c"], timeout=5)
+
+    # ── launch via monkey (finds correct launcher activity automatically) ────
+    ok, out = _run(args + ["shell", "monkey", "-p", PKG, "-c",
+                            "android.intent.category.LAUNCHER", "1"], timeout=8)
+    if not ok or "Events injected: 1" not in out:
+        return False, f"Could not launch PingTools: {out[:200]}"
+    _time.sleep(2.5)
+
+    # Verify PingTools is in foreground
+    _, fg = _run(args + ["shell", "dumpsys", "window", "windows"], timeout=5)
+    if PKG not in fg:
+        return False, f"PingTools did not come to foreground (check if installed and not disabled)"
+
+    # ── open navigation drawer if not already open ───────────────────────────
+    dump = _dump()
+    drawer_btn = _find(dump, desc="Open navigation drawer")
+    if drawer_btn:
+        _tap(drawer_btn)
+        _time.sleep(0.8)
+        dump = _dump()
+
+    # ── tap Ping menu item (resource-id confirmed from UI dump) ───────────────
+    ping_item = _find(dump, res_id=PING_RES_ID)
+    if not ping_item:
+        ping_item = _find(dump, text="Ping", cls="android.widget.CheckedTextView")
+    if not ping_item:
+        return False, "Could not find Ping menu item in drawer"
+    _tap(ping_item)
+    _time.sleep(1.5)
+
+    # ── enter IP in host EditText ────────────────────────────────────────────
+    dump = _dump()
+    host_field = _find(dump, cls="android.widget.EditText")
+    if not host_field:
+        return False, "Could not find host input on Ping screen"
+    _clear_and_type(host_field, ip)
+
+    # ── tap Start button ─────────────────────────────────────────────────────
+    dump = _dump()
+    start_btn = (
+        _find(dump, text="Start") or
+        _find(dump, desc="Start") or
+        _find(dump, text="PING") or
+        _find(dump, text="Go")
+    )
+    if not start_btn:
+        return False, "Could not find Start button on Ping screen"
+    _tap(start_btn)
+
+    # ── wait 10 seconds for ping to complete ─────────────────────────────────
+    _time.sleep(10)
+
+    # ── read results from logcat (canvas UI is not accessible via dump) ───────
+    _, log = _run(args + ["logcat", "-d"], timeout=10)
+    ping_lines = [
+        ln.strip() for ln in log.splitlines()
+        if re.search(r"bytes from|icmp_seq|ttl=|time=\d|packet loss|\d+ ms", ln, re.I)
+    ]
+    if ping_lines:
+        # Show last 5 unique lines (most recent results)
+        return True, " | ".join(dict.fromkeys(ping_lines[-5:]))
+
+    # Fallback: UI dump text nodes
+    dump = _dump()
+    all_texts = [t for t in re.findall(r'text="([^"]+)"', dump) if t.strip()]
+    result_lines = [
+        t for t in all_texts
+        if re.search(r"\d+\s*ms|\d+%|icmp|ttl|time=|reachable|bytes from", t, re.I)
+    ]
+    if result_lines:
+        return True, " | ".join(dict.fromkeys(result_lines[:6]))
+
+    return True, f"PingTools ran for {ip} — no result captured (canvas view)"
 
 
 def screenshot(serial: str, save_path: str) -> Result:
