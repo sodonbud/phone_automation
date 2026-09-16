@@ -61,7 +61,11 @@ if errorlevel 1 (
 if exist "%TMP_DIR%" rd /s /q "%TMP_DIR%"
 powershell -Command "Expand-Archive -Path '%TMP_ZIP%' -DestinationPath '%TMP_DIR%' -Force"
 
-:: Copy files — skip config.py and data/ to preserve local settings
+:: Backup config.py before copying anything
+set CFG_BACKUP=%TEMP%\phone_automation_config_backup.py
+if exist "%~dp0config.py" copy "%~dp0config.py" "%CFG_BACKUP%" >nul
+
+:: Copy updated files
 echo Copying updated files...
 set SRC=%TMP_DIR%\phone_automation-main
 
@@ -70,12 +74,14 @@ xcopy "%SRC%\*.bat" "%~dp0" /Y /Q
 xcopy "%SRC%\*.txt" "%~dp0" /Y /Q
 xcopy "%SRC%\*.md"  "%~dp0" /Y /Q
 
-:: Restore config.py if it got overwritten (xcopy won't overwrite excluded files, but just in case)
-if exist "%~dp0config.example.py" (
-    if not exist "%~dp0config.py" (
-        copy "%~dp0config.example.py" "%~dp0config.py" >nul
-        echo Created config.py from config.example.py — please fill in your device settings.
-    )
+:: Always restore config.py — never overwrite it
+if exist "%CFG_BACKUP%" (
+    copy "%CFG_BACKUP%" "%~dp0config.py" >nul
+    del "%CFG_BACKUP%" >nul
+    echo config.py preserved.
+) else if exist "%~dp0config.example.py" (
+    copy "%~dp0config.example.py" "%~dp0config.py" >nul
+    echo Created config.py from config.example.py — fill in your ADB path and device settings.
 )
 
 :: Cleanup
