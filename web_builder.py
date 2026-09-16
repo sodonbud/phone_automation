@@ -88,13 +88,28 @@ def _save_config(new_phones: dict, new_serials: dict) -> None:
 
 # ── Data storage ──────────────────────────────────────────────────────────────
 DATA_DIR        = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
-HISTORY_FILE    = os.path.join(DATA_DIR, "history.json")
+HISTORY_DIR     = os.path.join(os.path.dirname(os.path.abspath(__file__)), "history")
 
-SECTIONS_FILE   = os.path.join(DATA_DIR, "sections.json")
-TEMPLATES_FILE  = os.path.join(DATA_DIR, "templates.json")
+SECTIONS_FILE        = os.path.join(DATA_DIR, "sections.json")
+TEMPLATES_FILE       = os.path.join(DATA_DIR, "templates.json")
+NETWORK_PROFILES_FILE = os.path.join(DATA_DIR, "network_profiles.json")
 
 os.makedirs(DATA_DIR, exist_ok=True)
-os.makedirs(SCREENSHOTS_DIR, exist_ok=True)
+os.makedirs(HISTORY_DIR, exist_ok=True)
+
+
+def _load_network_profiles() -> dict:
+    try:
+        with open(NETWORK_PROFILES_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def _save_network_profiles(profiles: dict) -> None:
+    with open(NETWORK_PROFILES_FILE, "w", encoding="utf-8") as f:
+        json.dump(profiles, f, ensure_ascii=False, indent=2)
+
 
 
 def _load_sections() -> list:
@@ -124,19 +139,27 @@ def _write_templates(templates: list) -> None:
 
 
 def _load_history() -> list:
+    runs = []
     try:
-        with open(HISTORY_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return []
+        for fname in sorted(os.listdir(HISTORY_DIR), reverse=True):
+            if not fname.endswith(".json"):
+                continue
+            try:
+                with open(os.path.join(HISTORY_DIR, fname), "r", encoding="utf-8") as f:
+                    runs.append(json.load(f))
+            except (json.JSONDecodeError, OSError):
+                pass
+    except OSError:
+        pass
+    return runs
 
 
 def _save_run(run: dict) -> None:
-    history = _load_history()
-    history.insert(0, run)
-    history = history[:50]
-    with open(HISTORY_FILE, "w", encoding="utf-8") as f:
-        json.dump(history, f, indent=2)
+    ts = run.get("ts", datetime.now().isoformat())
+    safe = ts.replace(":", "-").replace(".", "-")[:19]
+    fname = f"{safe}.json"
+    with open(os.path.join(HISTORY_DIR, fname), "w", encoding="utf-8") as f:
+        json.dump(run, f, indent=2)
 
 
 # ── Action metadata ───────────────────────────────────────────────────────────
@@ -376,6 +399,19 @@ ACTIONS = [
         "desc": "Create a data package for a subscriber via API.",
     },
     {
+        "id": "DP_CREATE_MULTI",
+        "label": "Create Multiple Packages",
+        "color": "#059669",
+        "icon": "📦",
+        "fields": ["number", "value", "value2"],
+        "hints": {
+            "number": "Subscriber SIM (e.g. Phone1 SIM1)",
+            "value": "Packages to create (select multiple)",
+            "value2": "Mode: sequential or batch",
+        },
+        "desc": "Create multiple data packages for a subscriber in one step.",
+    },
+    {
         "id": "DP_DELETE",
         "label": "Delete Package",
         "color": "#dc2626",
@@ -388,13 +424,26 @@ ACTIONS = [
         "desc": "Delete a data package for a subscriber via API.",
     },
     {
+        "id": "DP_DELETE_MULTI",
+        "label": "Delete Active Packages",
+        "color": "#dc2626",
+        "icon": "🗑️",
+        "fields": ["number", "value"],
+        "hints": {
+            "number": "Subscriber SIM (e.g. Phone1 SIM1)",
+            "value": "Active packages to delete",
+        },
+        "desc": "Load subscriber's active packages and delete selected ones.",
+    },
+    {
         "id": "DP_MODIFY",
         "label": "Modify Package",
         "color": "#d97706",
         "icon": "✏️",
-        "fields": ["number", "value2"],
+        "fields": ["number", "value", "value2"],
         "hints": {
             "number": "Subscriber SIM (e.g. Phone1 SIM1)",
+            "value": "End date (YYYY-MM-DD)",
             "value2": "Threshold",
         },
         "desc": "Modify/update a data package for a subscriber via API.",
@@ -421,10 +470,106 @@ ACTIONS = [
         },
         "desc": "Get/select the list of data packages for a subscriber via API.",
     },
+    # ── UDM (API) ────────────────────────────────────────────────────────────
+    {
+        "id": "UDM_LIST_GPRS",
+        "label": "List GPRS",
+        "color": "#0284c7",
+        "icon": "📡",
+        "fields": ["number"],
+        "hints": {"number": "ISDN (phone number)"},
+        "desc": "POST /udm/optgprs/list?isdn= — list GPRS options for subscriber.",
+    },
+    {
+        "id": "UDM_ASSIGN_GPRS",
+        "label": "Assign GPRS",
+        "color": "#059669",
+        "icon": "➕",
+        "fields": ["number", "value", "pdpadd", "apntplid", "qostplid"],
+        "hints": {
+            "number": "ISDN (phone number)",
+            "value": "Option to assign",
+            "pdpadd": "PDP address (e.g. 10.10.10.3)",
+            "apntplid": "APN template ID (number)",
+            "qostplid": "QoS template ID (number)",
+        },
+        "desc": "POST /udm/optgprs/assign — assign a GPRS option to subscriber.",
+    },
+    {
+        "id": "UDM_REMOVE_GPRS",
+        "label": "Remove GPRS",
+        "color": "#dc2626",
+        "icon": "➖",
+        "fields": ["number", "value"],
+        "hints": {"number": "ISDN (phone number)", "value": "Context IDs (e.g. 11,12)"},
+        "desc": "POST /udm/optgprs/remove — remove a GPRS option from subscriber.",
+    },
+    {
+        "id": "UDM_TEST_APN",
+        "label": "Test APN",
+        "color": "#7c3aed",
+        "icon": "🧪",
+        "fields": ["target", "number", "pdpadd", "apntplid", "qostplid", "check_ip", "check_port", "scan_ports"],
+        "hints": {
+            "number": "ISDN (phone number)",
+            "pdpadd": "PDP address (e.g. 10.10.10.3)",
+            "apntplid": "APN template ID",
+            "qostplid": "QoS template ID",
+            "check_ip": "IP to ping/connect (optional)",
+            "check_port": "Port for TCP check (optional)",
+            "scan_ports": "Port scan list e.g. 80,443,8000-8100 (optional)",
+        },
+        "desc": "Full APN test: list → assign → remove → verify config restored.",
+    },
+    {
+        "id": "DP_PRIORITY_TEST",
+        "label": "Priority Test",
+        "color": "#7c3aed",
+        "icon": "🏆",
+        "fields": ["target", "number", "value", "check_ip"],
+        "hints": {"number": "Subscriber SIM (e.g. Phone1 SIM1)"},
+        "default": {"check_ip": "http://ipv4.download.thinkbroadband.com/20MB.zip"},
+        "desc": "Create packages, generate traffic, verify highest-priority package is consumed first.",
+    },
 ]
 
 # ── Flask app ─────────────────────────────────────────────────────────────────
-app = Flask(__name__)
+import os as _os
+SCREENSHOT_DIR = _os.path.join(_os.path.dirname(__file__), "static", "screenshots")
+_os.makedirs(SCREENSHOT_DIR, exist_ok=True)
+
+def _fetch_package_priorities(msisdn: str) -> dict:
+    """Fetch {package_name: {priority, typeid}} from /package_priority_check API."""
+    import urllib.request, urllib.parse as _up
+    try:
+        qs = _up.urlencode({"number": msisdn.lstrip("+")})
+        req = urllib.request.Request(
+            f"http://10.10.55.84:8000/package_priority_check?{qs}",
+            data=b"", headers={"Accept": "application/json"}, method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=8) as r:
+            items = json.loads(r.read().decode())
+        result = {}
+        for it in (items if isinstance(items, list) else []):
+            name = it.get("package_name") or it.get("ServiceName") or it.get("name", "")
+            if name:
+                result[name] = {
+                    "priority": int(it.get("UPCCPriority") or it.get("priority") or 0),
+                    "typeid":   int(it.get("TypeID") or it.get("typeid") or 0),
+                }
+        return result
+    except Exception:
+        return {}
+
+# Kept as a module-level fallback so _pkg_info always has something to call
+PACKAGE_PRIORITIES: dict = {}
+
+def _pkg_info(name: str, priorities: dict | None = None) -> dict:
+    """Return {priority, typeid} for a package name from a fetched priorities dict."""
+    src = priorities if priorities is not None else PACKAGE_PRIORITIES
+    return {"priority": 0, "typeid": 0, **src.get(name, {})}
+
+app = Flask(__name__, static_folder="static")
 
 HTML = r"""<!DOCTYPE html>
 <html lang="en">
@@ -707,9 +852,6 @@ HTML = r"""<!DOCTYPE html>
   .history-detail td { padding:3px 4px; color:var(--text); }
   .sparkline-bar { display:flex; gap:3px; align-items:flex-end; height:40px; background:var(--surface2); border-radius:6px; padding:6px; }
 
-  /* ── Screenshot link ── */
-  .screenshot-link { display:inline-block; margin-top:4px; font-size:.68rem; color:var(--accent); text-decoration:none; }
-  .screenshot-link:hover { text-decoration:underline; }
 
   /* ── Timing pill ── */
   .timing-pill { display:inline-block; background:var(--surface2); border:1px solid var(--border); border-radius:10px; font-size:.65rem; padding:1px 6px; color:var(--muted); margin-left:6px; }
@@ -1009,7 +1151,7 @@ let dpPackagesLoading = false;
 
 async function fetchPackageList() {
   dpPackagesLoading = true;
-  render();
+  try { render(); } catch(e) { console.warn('render@fetchStart:', e); }
   try {
     const res = await fetch('/api/package_list');
     const d = await res.json();
@@ -1017,9 +1159,10 @@ async function fetchPackageList() {
     if (!DP_PACKAGES.length && d.error) console.warn('Package list error:', d.error);
   } catch(e) {
     DP_PACKAGES = [];
+    console.error('fetchPackageList failed:', e);
   }
   dpPackagesLoading = false;
-  render();
+  try { render(); } catch(e) { console.warn('render@fetchEnd:', e); }
 }
 let networkOptionsLoading = false;
 let devicesLoading = false;
@@ -1269,7 +1412,8 @@ const PALETTE_GROUPS = [
   { label: '📶 Network', ids: ['SET_NETWORK','AIRPLANE_MODE','SET_APN','USSD','SET_VOLTE','CHECK_WIFI_CALLING','SET_WIFI_CALLING','CHECK_NETWORK'] },
   { label: '🌐 Apps',   ids: ['OPEN_BROWSER','SPEEDTEST','DOWNLOAD_FILE'] },
   { label: '⚙️ Device', ids: ['WAKE','WAIT','SET_CONFIG','GET_CONFIG'] },
-  { label: '📦 Data Package', ids: ['DP_CREATE','DP_MODIFY','DP_CHECK'] },
+  { label: '📦 Data Package', ids: ['DP_CREATE','DP_CREATE_MULTI','DP_DELETE_MULTI','DP_MODIFY','DP_CHECK','DP_PRIORITY_TEST'] },
+  { label: '🛰️ UDM', ids: ['UDM_TEST_APN','UDM_LIST_GPRS','UDM_ASSIGN_GPRS','UDM_REMOVE_GPRS'] },
 ];
 
 function buildPalette() {
@@ -1328,7 +1472,8 @@ function newStep(actionId) {
     target: defaultTarget,
     number: defaultNumber,
     value: def.value ?? '',
-    value2: '',
+    value2: def.value2 ?? '',
+    check_ip: def.check_ip ?? '',
     expected: def.expected ?? '',
     _isSection: false,
   };
@@ -1479,6 +1624,9 @@ function render() {
       } else if (s.action.startsWith('DP_')) {
         const simSlots = Object.keys(PHONE_NUMBERS).filter(k => PHONE_NUMBERS[k]);
         fields.appendChild(makeComboInput(idx, 'number', 'Subscriber SIM', simSlots.length ? simSlots : PHONES));
+      } else if (s.action.startsWith('UDM_')) {
+        const simSlots = Object.keys(PHONE_NUMBERS).filter(k => PHONE_NUMBERS[k]);
+        fields.appendChild(makeComboInput(idx, 'number', 'ISDN', simSlots.length ? simSlots : PHONES));
       } else if (['CALL','CHECK_CALL','ANSWER_CALL','SMS','CHECK_SMS'].includes(s.action)) {
         const otherSlots = Object.keys(PHONE_NUMBERS)
           .filter(k => !k.startsWith(s.target) && PHONE_NUMBERS[k]);
@@ -1490,16 +1638,22 @@ function render() {
     if (a.fields.includes('value')) {
       if (['SET_VOLTE', 'AIRPLANE_MODE', 'SET_WIFI_CALLING'].includes(s.action)) {
         fields.appendChild(makeToggle(idx, 'value', 'Value'));
-      } else if (s.action === 'DP_CREATE') {
+      } else if (['DP_CREATE','DP_CREATE_MULTI','DP_PRIORITY_TEST'].includes(s.action)) {
         if (dpPackagesLoading) {
           const g = document.createElement('div'); g.className = 'field-group';
           const lb = document.createElement('label'); lb.textContent = 'Package';
           const ld = document.createElement('div'); ld.className = 'field-loading';
           ld.innerHTML = '<span class="loading-spinner"></span><span>Loading packages…</span>';
           g.appendChild(lb); g.appendChild(ld); fields.appendChild(g);
-        } else {
+        } else if (s.action === 'DP_CREATE') {
           fields.appendChild(makeSearchableSelect(idx, 'value', 'Package', DP_PACKAGES));
+        } else {
+          fields.appendChild(makeMultiSelect(idx, 'value', 'Packages', DP_PACKAGES));
         }
+      } else if (s.action === 'DP_DELETE_MULTI') {
+        fields.appendChild(makeDynamicDeleteSelect(idx, s));
+      } else if (s.action === 'DP_MODIFY') {
+        fields.appendChild(makeDynamicModifyPackage(idx, s));
       } else if (['DP_DELETE'].includes(s.action)) {
         fields.appendChild(makeInputReadonly(idx, 'value', 'Package Code'));
       } else {
@@ -1507,7 +1661,40 @@ function render() {
       }
     }
     if (a.fields.includes('value2')) {
-      fields.appendChild(makeInput(idx, 'value2', 'New Value / Params', a.hints.value2 || ''));
+      if (s.action === 'DP_CREATE_MULTI') {
+        const g = document.createElement('div'); g.className = 'field-group';
+        const lb = document.createElement('label'); lb.textContent = 'Mode';
+        const sel = document.createElement('select');
+        sel.name = `steps[${idx}][value2]`;
+        sel.className = 'field-input';
+        [['sequential','sequential (диагностик)'],['batch','batch']].forEach(([v,t]) => {
+          const opt = document.createElement('option'); opt.value = v; opt.textContent = t;
+          if ((s.value2 || 'sequential') === v) opt.selected = true;
+          sel.appendChild(opt);
+        });
+        g.appendChild(lb); g.appendChild(sel); fields.appendChild(g);
+      } else {
+        fields.appendChild(makeInput(idx, 'value2', 'New Value / Params', a.hints.value2 || ''));
+      }
+    }
+    if (a.fields.includes('pdpadd')) {
+      fields.appendChild(makeInput(idx, 'pdpadd', 'PDP Address', a.hints.pdpadd || ''));
+    }
+    if (a.fields.includes('apntplid')) {
+      fields.appendChild(makeInput(idx, 'apntplid', 'APN Template ID', a.hints.apntplid || ''));
+    }
+    if (a.fields.includes('qostplid')) {
+      fields.appendChild(makeInput(idx, 'qostplid', 'QoS Template ID', a.hints.qostplid || ''));
+    }
+    if (a.fields.includes('check_ip')) {
+      const cipLabel = s.action === 'DP_PRIORITY_TEST' ? 'File Download URL' : 'Check IP';
+      fields.appendChild(makeInput(idx, 'check_ip', cipLabel, a.hints.check_ip || ''));
+    }
+    if (a.fields.includes('check_port')) {
+      fields.appendChild(makeInput(idx, 'check_port', 'Check Port', a.hints.check_port || ''));
+    }
+    if (a.fields.includes('scan_ports')) {
+      fields.appendChild(makeInput(idx, 'scan_ports', 'Port Scan', a.hints.scan_ports || ''));
     }
     if (a.fields.includes('expected')) {
       fields.appendChild(makeInput(idx, 'expected', 'Expected Result', a.hints.expected || ''));
@@ -1733,6 +1920,239 @@ function makeSearchableSelect(idx, field, label, options) {
   g.appendChild(lb);
   g.appendChild(wrap);
   return g;
+}
+
+function makeMultiSelect(idx, field, label, options) {
+  const g = document.createElement('div');
+  g.className = 'field-group';
+  const lb = document.createElement('label');
+  lb.textContent = label;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'searchable-wrap multi-select-wrap';
+  wrap.style.cssText = 'flex-wrap:wrap;min-height:36px;height:auto;align-items:flex-start;padding:4px 6px;gap:4px;cursor:text';
+
+  const inp = document.createElement('input');
+  inp.placeholder = 'Search & add…';
+  inp.autocomplete = 'off';
+  inp.style.cssText = 'flex:1;min-width:100px;background:transparent;border:none;outline:none;color:inherit;font-size:.85rem;padding:2px 0';
+
+  const drop = document.createElement('div');
+  drop.className = 'searchable-dropdown';
+
+  function getSelected() {
+    const v = steps[idx][field] || '';
+    return v ? v.split(',').map(s => s.trim()).filter(Boolean) : [];
+  }
+  function setSelected(arr) {
+    steps[idx][field] = arr.join(',');
+    renderPreview();
+  }
+
+  function renderTags() {
+    wrap.querySelectorAll('.ms-tag').forEach(t => t.remove());
+    getSelected().forEach(pkg => {
+      const tag = document.createElement('span');
+      tag.className = 'ms-tag';
+      tag.style.cssText = 'display:inline-flex;align-items:center;gap:3px;background:#059669;color:#fff;border-radius:4px;padding:2px 6px;font-size:.78rem;white-space:nowrap';
+      tag.innerHTML = `${esc(pkg)} <span style="cursor:pointer;font-weight:bold;margin-left:2px" data-rm="${esc(pkg)}">×</span>`;
+      tag.querySelector('[data-rm]').addEventListener('mousedown', e => {
+        e.preventDefault();
+        setSelected(getSelected().filter(s => s !== pkg));
+        renderTags();
+      });
+      wrap.insertBefore(tag, inp);
+    });
+  }
+
+  function buildDrop(filter) {
+    drop.innerHTML = '';
+    const f = (filter || '').toLowerCase();
+    const sel = new Set(getSelected());
+    const filtered = options.filter(o => !sel.has(o) && (!f || o.toLowerCase().includes(f)));
+    if (!filtered.length) { drop.classList.remove('open'); return; }
+    filtered.forEach(o => {
+      const item = document.createElement('div');
+      item.className = 'searchable-option';
+      item.textContent = o;
+      item.addEventListener('mousedown', e => {
+        e.preventDefault();
+        const cur = getSelected();
+        if (!cur.includes(o)) { cur.push(o); setSelected(cur); }
+        inp.value = '';
+        renderTags();
+        buildDrop('');
+      });
+      drop.appendChild(item);
+    });
+    drop.classList.add('open');
+  }
+
+  inp.addEventListener('focus', () => buildDrop(inp.value));
+  inp.addEventListener('input', () => buildDrop(inp.value));
+  inp.addEventListener('blur', () => setTimeout(() => drop.classList.remove('open'), 160));
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Backspace' && !inp.value) {
+      const cur = getSelected();
+      if (cur.length) { cur.pop(); setSelected(cur); renderTags(); }
+    }
+    const items = [...drop.querySelectorAll('.searchable-option')];
+    let ci = items.findIndex(i => i.classList.contains('focused'));
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      items[ci]?.classList.remove('focused');
+      ci = Math.min(ci + 1, items.length - 1);
+      if (ci < 0) ci = 0;
+      items[ci]?.classList.add('focused');
+      items[ci]?.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      items[ci]?.classList.remove('focused');
+      ci = Math.max(ci - 1, 0);
+      items[ci]?.classList.add('focused');
+      items[ci]?.scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter') {
+      const focused = drop.querySelector('.searchable-option.focused');
+      if (focused) focused.dispatchEvent(new MouseEvent('mousedown'));
+    } else if (e.key === 'Escape') {
+      drop.classList.remove('open');
+    }
+  });
+  wrap.addEventListener('click', () => inp.focus());
+
+  wrap.appendChild(inp);
+  wrap.appendChild(drop);
+  renderTags();
+  g.appendChild(lb);
+  g.appendChild(wrap);
+  return g;
+}
+
+function makeDynamicDeleteSelect(idx, s) {
+  const g = document.createElement('div');
+  g.className = 'field-group';
+  const lb = document.createElement('label');
+  lb.textContent = 'Active Packages';
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.textContent = '🔄 Load packages';
+  btn.style.cssText = 'margin-bottom:6px;padding:4px 10px;border-radius:5px;background:#dc2626;color:#fff;border:none;cursor:pointer;font-size:.8rem';
+
+  const status = document.createElement('div');
+  status.style.cssText = 'font-size:.75rem;color:var(--muted);margin-bottom:4px';
+
+  let loadedOptions = [];
+
+  btn.addEventListener('click', async () => {
+    const num = s.number || '';
+    if (!num) { status.textContent = 'Select subscriber first'; return; }
+    btn.textContent = '⏳ Loading…';
+    btn.disabled = true;
+    status.textContent = '';
+    try {
+      const res = await fetch('/api/subscriber_packages?number=' + encodeURIComponent(num));
+      const d = await res.json();
+      loadedOptions = d.packages || [];
+      if (loadedOptions.length) {
+        status.textContent = `${loadedOptions.length} active package(s) found`;
+        multiWrap.replaceWith(makeMultiSelect(idx, 'value', '', loadedOptions));
+      } else {
+        status.textContent = d.error || 'No active packages found';
+      }
+    } catch(e) {
+      status.textContent = 'Load failed: ' + e.message;
+    }
+    btn.textContent = '🔄 Reload';
+    btn.disabled = false;
+  });
+
+  const multiWrap = makeMultiSelect(idx, 'value', '', []);
+  multiWrap.querySelector('input').placeholder = 'Load packages first…';
+
+  g.appendChild(lb);
+  g.appendChild(btn);
+  g.appendChild(status);
+  g.appendChild(multiWrap);
+  return g;
+}
+
+function makeDynamicModifyPackage(idx, s) {
+  const wrap = document.createElement('div');
+
+  // ── Package selector ──────────────────────────────────────────────────────
+  const pkgGroup = document.createElement('div');
+  pkgGroup.className = 'field-group';
+  const pkgLabel = document.createElement('label');
+  pkgLabel.textContent = 'Active Package';
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.textContent = '🔄 Load packages';
+  btn.style.cssText = 'margin-bottom:6px;padding:4px 10px;border-radius:5px;background:#d97706;color:#fff;border:none;cursor:pointer;font-size:.8rem';
+
+  const status = document.createElement('div');
+  status.style.cssText = 'font-size:.75rem;color:var(--muted);margin-bottom:4px';
+
+  const pkgSel = document.createElement('select');
+  pkgSel.className = 'field-input';
+  pkgSel.style.display = 'none';
+  const defOpt = document.createElement('option');
+  defOpt.value = ''; defOpt.textContent = '— select package —';
+  pkgSel.appendChild(defOpt);
+
+  // ── End date input (auto-filled on package select) ────────────────────────
+  const dateGroup = document.createElement('div');
+  dateGroup.className = 'field-group';
+  const dateLabel = document.createElement('label');
+  dateLabel.textContent = 'End Date';
+  const dateInput = document.createElement('input');
+  dateInput.type = 'text';
+  dateInput.name = `steps[${idx}][value]`;
+  dateInput.className = 'field-input';
+  dateInput.placeholder = 'Select package to auto-fill…';
+  dateInput.value = s.value || '';
+
+  pkgSel.addEventListener('change', () => {
+    const opt = pkgSel.selectedOptions[0];
+    if (opt && opt.dataset.enddate) dateInput.value = opt.dataset.enddate;
+  });
+
+  btn.addEventListener('click', async () => {
+    const num = s.number || '';
+    if (!num) { status.textContent = 'Select subscriber first'; return; }
+    btn.textContent = '⏳ Loading…'; btn.disabled = true; status.textContent = '';
+    try {
+      const res = await fetch('/api/subscriber_packages_full?number=' + encodeURIComponent(num));
+      const d = await res.json();
+      const pkgs = d.packages || [];
+      pkgSel.querySelectorAll('option:not(:first-child)').forEach(o => o.remove());
+      if (pkgs.length) {
+        pkgs.forEach(pkg => {
+          const o = document.createElement('option');
+          o.value = pkg.name;
+          o.textContent = `${pkg.name}  (ends: ${pkg.enddate || '?'})`;
+          o.dataset.enddate = pkg.enddate || '';
+          pkgSel.appendChild(o);
+        });
+        pkgSel.style.display = '';
+        status.textContent = `${pkgs.length} active package(s)`;
+      } else {
+        status.textContent = d.error || 'No active packages';
+      }
+    } catch(e) { status.textContent = 'Load failed: ' + e.message; }
+    btn.textContent = '🔄 Reload'; btn.disabled = false;
+  });
+
+  pkgGroup.appendChild(pkgLabel);
+  pkgGroup.appendChild(btn);
+  pkgGroup.appendChild(status);
+  pkgGroup.appendChild(pkgSel);
+  dateGroup.appendChild(dateLabel);
+  dateGroup.appendChild(dateInput);
+  wrap.appendChild(pkgGroup);
+  wrap.appendChild(dateGroup);
+  return wrap;
 }
 
 function makeToggle(idx, field, label) {
@@ -2137,18 +2557,13 @@ function appendLogRow(ev, log) {
   if (ev.duration_ms != null)
     timingHtml += `<span class="timing-pill">⏱ ${(ev.duration_ms/1000).toFixed(1)}s</span>`;
 
-  // Screenshot link
-  const ssHtml = ev.screenshot
-    ? `<br><a class="screenshot-link" href="/screenshots/${ev.screenshot}" target="_blank">📷 View screenshot</a>`
-    : '';
-
   row.className = 'log-row';
   row.innerHTML = `
     <span class="log-step">${ev.step ?? ''}</span>
     <span class="log-action"><span class="action-pill" style="background:${a.color}">${a.icon} ${esc(ev.action||'')}</span></span>
     <span class="log-target">${esc(ev.target || '')}</span>
     <span class="log-badge ${badge}">${result}</span>
-    <span class="log-output">${esc((ev.output || '').slice(0,300))}${timingHtml}${ssHtml}</span>`;
+    <span class="log-output" style="white-space:pre-wrap">${renderOutput((ev.output || '').slice(0,4000))}${timingHtml}</span>`;
   log.appendChild(row);
   log.scrollTop = log.scrollHeight;
 
@@ -2234,7 +2649,7 @@ async function exportResults() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ log: _runLog, ts: _runTs }),
   });
-  if (!res.ok) { toast('Export failed', 'error'); return; }
+  if (!res.ok) { const t = await res.text(); toast('Export failed: ' + t.slice(0,200), 'error'); return; }
   const blob = await res.blob();
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
@@ -2424,7 +2839,6 @@ function renderHistorySteps(events) {
     let extra = '';
     if (ev.call_setup_ms != null) extra += ` <span class="timing-pill">📞 ${(ev.call_setup_ms/1000).toFixed(1)}s</span>`;
     if (ev.sms_rtt_ms  != null) extra += ` <span class="timing-pill">✉ ${(ev.sms_rtt_ms/1000).toFixed(1)}s</span>`;
-    if (ev.screenshot) extra += ` <a class="screenshot-link" href="/screenshots/${ev.screenshot}" target="_blank">📷</a>`;
     html += `<tr>
       <td style="color:var(--muted);width:24px;text-align:center;padding:2px">${ev.step ?? stepNum}</td>
       <td style="padding:2px 4px">${esc(ev.action||'')} <span style="color:var(--muted)">${esc(ev.target||'')}</span>${extra}</td>
@@ -2472,7 +2886,33 @@ function toast(msg, type = '') {
   setTimeout(() => t.className = 'toast', 2800);
 }
 
-function esc(s) { return String(s).replace(/"/g,'&quot;'); }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function renderOutput(raw) {
+  const parts = raw.split(/(\[screenshot:[^\]]+\])/g);
+  return parts.map(p => {
+    const m = p.match(/^\[screenshot:(.+)\]$/);
+    if (m) {
+      const fname = m[1].replace(/\\/g,'/').split('/').pop();
+      const url = '/static/screenshots/' + encodeURIComponent(fname);
+      return `<span onclick="showScreenshot('${url}')" style="cursor:pointer;color:#63b3ed;text-decoration:underline;font-size:.85rem">📸 view screenshot</span>`;
+    }
+    return esc(p);
+  }).join('');
+}
+
+function showScreenshot(url) {
+  let modal = document.getElementById('ss-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'ss-modal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.85);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:zoom-out';
+    modal.onclick = () => { modal.style.display = 'none'; };
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML = `<img src="${url}" style="max-width:92vw;max-height:92vh;border-radius:8px;box-shadow:0 4px 40px #000">`;
+  modal.style.display = 'flex';
+}
 
 // ── Device float panel ────────────────────────────────────────────────────────
 function toggleDeviceFloat() {
@@ -2624,6 +3064,7 @@ fetchNetworkOptions();
 
 
 @app.route("/")
+
 def index():
     return render_template_string(
         HTML,
@@ -2790,6 +3231,14 @@ def export_excel():
 @app.route("/export_results", methods=["POST"])
 def export_results():
     """Turn _runLog (sent from browser) into a styled xlsx and return it."""
+    try:
+        return _export_results_inner()
+    except Exception as exc:
+        import traceback
+        return traceback.format_exc(), 500, {"Content-Type": "text/plain"}
+
+
+def _export_results_inner():
     import openpyxl
     from openpyxl.styles import Alignment, Font, PatternFill, Border, Side
     from openpyxl.utils import get_column_letter
@@ -2856,8 +3305,8 @@ def export_results():
     # ── Sheet 2: Results ─────────────────────────────────────────────────────
     ws = wb.create_sheet("Results")
 
-    COLS = ["#", "Section", "Action", "Target", "Result", "Output"]
-    col_widths = [5, 28, 16, 12, 10, 60]
+    COLS = ["#", "Section", "Action", "Target", "Result", "Output", "Screenshot"]
+    col_widths = [5, 28, 16, 12, 10, 55, 32]
 
     for ci, (name, w) in enumerate(zip(COLS, col_widths), start=1):
         cell = ws.cell(row=1, column=ci, value=name)
@@ -2906,12 +3355,17 @@ def export_results():
         result = (ev.get("result") or "skip").upper()
         output = ev.get("output", "")
 
-        rf = {"PASS": pass_fill, "FAIL": fail_fill}.get(result, skip_fill)
+        # Extract screenshot path from output token
+        import re as _re
+        shot_match = _re.search(r'\[screenshot:([^\]]+)\]', output)
+        shot_path  = shot_match.group(1).replace("\\", "/") if shot_match else ""
+        clean_output = _re.sub(r'\[screenshot:[^\]]+\]', '', output).strip()
 
-        action_col = ACTION_COLORS.get(action, "555555")
+        rf = {"PASS": pass_fill, "FAIL": fail_fill}.get(result, skip_fill)
+        action_col  = ACTION_COLORS.get(action, "555555")
         action_font = Font(bold=True, color=action_col)
 
-        vals = [step_num, current_section, action, target, result, output]
+        vals = [step_num, current_section, action, target, result, clean_output, ""]
         for ci, val in enumerate(vals, start=1):
             cell = ws.cell(row=data_row, column=ci, value=val)
             cell.fill   = rf
@@ -2927,7 +3381,26 @@ def export_results():
                 cell.alignment = center
             else:
                 cell.alignment = left
-        ws.row_dimensions[data_row].height = 18
+
+        row_h = 18
+        if shot_path:
+            import os as _os
+            from openpyxl.drawing.image import Image as XLImage
+            if _os.path.exists(shot_path):
+                try:
+                    img = XLImage(shot_path)
+                    # Scale to fit ~120px tall in cell
+                    scale = 120 / img.height if img.height else 1
+                    img.width  = int(img.width  * scale)
+                    img.height = 120
+                    col_letter = get_column_letter(7)
+                    img.anchor = f"{col_letter}{data_row}"
+                    ws.add_image(img)
+                    row_h = 95
+                except Exception:
+                    ws.cell(row=data_row, column=7, value=shot_path)
+
+        ws.row_dimensions[data_row].height = row_h
         data_row += 1
 
     ws.freeze_panes = "A2"
@@ -2961,7 +3434,9 @@ def run_test():
         "WAKE", "WAIT",
         "AIRPLANE_MODE", "OPEN_BROWSER", "SPEEDTEST", "SET_APN", "DOWNLOAD_FILE",
         "SET_VOLTE", "CHECK_WIFI_CALLING", "SET_WIFI_CALLING", "CHECK_NETWORK",
-        "DP_CREATE", "DP_DELETE", "DP_MODIFY", "DP_CHECK", "DP_SELECT",
+        "DP_CREATE", "DP_CREATE_MULTI", "DP_DELETE", "DP_DELETE_MULTI", "DP_MODIFY", "DP_CHECK", "DP_SELECT",
+        "DP_PRIORITY_TEST",
+        "UDM_LIST_GPRS", "UDM_ASSIGN_GPRS", "UDM_REMOVE_GPRS", "UDM_TEST_APN",
     }
 
     def _resolve(target):
@@ -2986,16 +3461,195 @@ def run_test():
             time.sleep(secs)
             return {**base, "result": "pass", "output": f"Waited {secs}s"}
 
-        if action in ("DP_CREATE", "DP_DELETE", "DP_MODIFY", "DP_CHECK", "DP_SELECT"):
+        if action == "DP_PRIORITY_TEST":
+            try:
+                import data_pkg_api as dp
+                import time as _time
+                msisdn = cfg.PHONE_NUMBERS.get(s.get("number", ""), s.get("number", ""))
+                pkgs      = [p.strip() for p in value.split(",") if p.strip()]
+                dl_url    = s.get("check_ip", "")
+                lines     = []
+                priorities = _fetch_package_priorities(msisdn)
+                lines.append(f"[P] Priority map ({len(priorities)} pkgs): " +
+                              ", ".join(f"{n}={v['priority']}(t{v['typeid']})"
+                                        for n, v in priorities.items()) if priorities
+                              else "[P] Priority map: fetch failed — using defaults")
+
+                # ── Step 0: Delete all existing packages ──────────────────────
+                _, raw_cur = dp.check_package(msisdn=msisdn, package_code="")
+                existing = list(dp.parse_qtastats(raw_cur).keys())
+                if existing:
+                    del_results = []
+                    for pkg in existing:
+                        d_ok, d_out = dp.delete_package(msisdn=msisdn, package_code=pkg)
+                        del_results.append(f"{'✓' if d_ok else '✗'} {pkg}")
+                    lines.append(f"[0] Cleared existing: {', '.join(del_results)}")
+                else:
+                    lines.append("[0] No existing packages to clear")
+
+                # ── Step 1: Create packages ───────────────────────────────────
+                if pkgs:
+                    ok_c, out_c = dp.create_packages_batch(msisdn=msisdn, packages=pkgs)
+                    lines.append(f"[1]{'✓' if ok_c else '✗'} Create: {', '.join(pkgs)}")
+                    if not ok_c:
+                        lines.append(f"  {out_c[:200]}")
+                else:
+                    lines.append("[1]- Create: SKIP (no packages selected)")
+
+                # ── Step 2: Snapshot BEFORE ───────────────────────────────────
+                _, raw_b = dp.check_package(msisdn=msisdn, package_code="")
+                before = dp.parse_qtastats(raw_b)
+                lines.append(f"[2] Before ({len(before)} pkgs):")
+                for nm, st in before.items():
+                    lines.append(f"  {nm}: balance={st.get('QTABALANCE','?')}  consumed={st.get('QTACONSUMPTION','?')}  ends={st.get('SRVENDDATETIME','?')}")
+
+                # ── Step 3: Generate traffic ──────────────────────────────────
+                if serial and dl_url:
+                    ok_d, out_d = adb.download_file(serial, dl_url)
+                    lines.append(f"[3]{'✓' if ok_d else '✗'} Download: {out_d[:120]}")
+                else:
+                    reason = "no phone" if not serial else "no download URL"
+                    lines.append(f"[3]- Traffic: SKIP ({reason})")
+
+                _time.sleep(5)
+
+                # ── Step 4: Snapshot AFTER ────────────────────────────────────
+                _, raw_a = dp.check_package(msisdn=msisdn, package_code="")
+                after = dp.parse_qtastats(raw_a)
+                lines.append(f"[4] After ({len(after)} pkgs):")
+                for nm, st in after.items():
+                    lines.append(f"  {nm}: balance={st.get('QTABALANCE','?')}  consumed={st.get('QTACONSUMPTION','?')}  ends={st.get('SRVENDDATETIME','?')}")
+
+                # ── Step 5: Find consumed package ─────────────────────────────
+                consumed = []
+                for nm in after:
+                    b_c = int(str(before.get(nm, {}).get("QTACONSUMPTION") or 0).replace(",","") or 0)
+                    a_c = int(str(after[nm].get("QTACONSUMPTION") or 0).replace(",","") or 0)
+                    if a_c > b_c:
+                        consumed.append((nm, a_c - b_c))
+                consumed.sort(key=lambda x: x[1], reverse=True)
+
+                # ── Step 6: Verdict ───────────────────────────────────────────
+                # typeid=5 packages (entertainment) are NOT consumed by file download
+                excluded = [p for p in pkgs if _pkg_info(p, priorities).get("typeid") == 5]
+                eligible = [p for p in pkgs if _pkg_info(p, priorities).get("typeid") != 5]
+
+                if excluded:
+                    lines.append(f"[5] Excluded (typeid=5, entertainment): {', '.join(excluded)}")
+
+                if not eligible:
+                    lines.append("[5]? All selected packages are typeid=5 — none consumed by file download")
+                    ok = False
+                else:
+                    # Sort eligible: highest priority first;
+                    # tiebreaker = earliest end date (consumed before later-expiring ones)
+                    def _enddate(name):
+                        # API returns SRVENDDATETIME as "YYYYMMDDHHMMSS"
+                        d = after.get(name, {})
+                        return d.get("SRVENDDATETIME") or "99999999999999"
+
+                    def _sort_key(name):
+                        return (-_pkg_info(name, priorities).get("priority", 0), _enddate(name))
+
+                    eligible_sorted = sorted(eligible, key=_sort_key)
+                    highest = eligible_sorted[0]
+                    highest_prio = _pkg_info(highest, priorities).get("priority", 0)
+
+                    # Show tiebreaker detail when same priority exists
+                    same_prio = [p for p in eligible
+                                 if _pkg_info(p, priorities).get("priority", 0) == highest_prio]
+                    if len(same_prio) > 1:
+                        lines.append(f"  Same priority ({highest_prio}) tiebreaker by end date:")
+                        for p in sorted(same_prio, key=_enddate):
+                            lines.append(f"    {p}: enddate={_enddate(p)}")
+
+                    lines.append(f"[5] Expected: {highest} (prio={highest_prio}, enddate={_enddate(highest)})")
+
+                    if consumed:
+                        top_name, top_delta = consumed[0]
+                        match = (top_name == highest)
+                        lines.append(f"  Consumed: {top_name} (+{top_delta:,} units)")
+                        lines.append("  All deltas: " + ", ".join(f"{n}+{d}" for n, d in consumed))
+                        ok = match
+                        lines.append(f"[5]{'✓' if match else '✗'} Priority {'PASS' if match else 'FAIL'}")
+                    else:
+                        lines.append("  No QTACONSUMPTION change detected — try larger download or wait longer")
+                        ok = False
+                out = "\n".join(lines)
+            except Exception as exc:
+                ok, out = False, str(exc)
+            return {**base, "result": "pass" if ok else "fail", "output": out[:5000]}
+
+        if action == "UDM_TEST_APN":
+            try:
+                import udm_api as udm
+                ok, out = udm.test_apn(
+                    isdn       = number,
+                    pdpadd     = s.get("pdpadd", ""),
+                    apntplid   = s.get("apntplid", ""),
+                    qostplid   = s.get("qostplid", ""),
+                    serial     = serial or "",
+                    check_ip   = s.get("check_ip", ""),
+                    check_port = s.get("check_port", ""),
+                    scan_ports = s.get("scan_ports", ""),
+                )
+            except Exception as exc:
+                ok, out = False, str(exc)
+            return {**base, "result": "pass" if ok else "fail", "output": out[:4000]}
+
+        if action in ("UDM_LIST_GPRS", "UDM_ASSIGN_GPRS", "UDM_REMOVE_GPRS"):
+            try:
+                import udm_api as udm
+                if action == "UDM_LIST_GPRS":
+                    ok, out = udm.list_gprs(number)
+                elif action == "UDM_ASSIGN_GPRS":
+                    ok, out = udm.assign_gprs(
+                        number, value,
+                        pdpadd=s.get("pdpadd", ""),
+                        apntplid=s.get("apntplid", ""),
+                        qostplid=s.get("qostplid", ""),
+                    )
+                else:
+                    ok, out = udm.remove_gprs(number, value)
+            except Exception as exc:
+                ok, out = False, str(exc)
+            if ok and expected and expected.lower() not in out.lower():
+                result = "fail"
+            else:
+                result = "pass" if ok else "fail"
+            return {**base, "result": result, "output": out[:400]}
+
+        if action in ("DP_CREATE", "DP_CREATE_MULTI", "DP_DELETE", "DP_DELETE_MULTI", "DP_MODIFY", "DP_CHECK", "DP_SELECT"):
             try:
                 import data_pkg_api as dp
                 msisdn = cfg.PHONE_NUMBERS.get(number, number)
-                if action == "DP_CREATE":
+                if action == "DP_CREATE_MULTI":
+                    pkgs = [p.strip() for p in value.split(",") if p.strip()]
+                    if not pkgs:
+                        ok, out = False, "No packages specified"
+                    else:
+                        mode = value2.strip() if value2.strip() in ("sequential", "batch") else "sequential"
+                        ok, out = dp.create_packages_batch(msisdn=msisdn, packages=pkgs, mode=mode)
+                elif action == "DP_DELETE_MULTI":
+                    pkgs = [p.strip() for p in value.split(",") if p.strip()]
+                    if not pkgs:
+                        ok, out = False, "No packages selected"
+                    else:
+                        results = []
+                        ok = True
+                        for pkg in pkgs:
+                            p_ok, p_out = dp.delete_package(msisdn=msisdn, package_code=pkg)
+                            status = "✓" if p_ok else "✗"
+                            results.append(f"{status} {pkg}: {p_out[:120]}")
+                            if not p_ok:
+                                ok = False
+                        out = f"Deleted {len(pkgs)} packages:\n" + "\n".join(results)
+                elif action == "DP_CREATE":
                     ok, out = dp.create_package(msisdn=msisdn, params=value)
                 elif action == "DP_DELETE":
                     ok, out = dp.delete_package(msisdn=msisdn, package_code=value)
                 elif action == "DP_MODIFY":
-                    ok, out = dp.modify_package(msisdn=msisdn, package_code=value, new_value=value2)
+                    ok, out = dp.modify_package(msisdn=msisdn, package_code="", new_value=value2, date=value)
                 elif action == "DP_CHECK":
                     ok, out = dp.check_package(msisdn=msisdn, package_code="")
                 else:
@@ -3048,7 +3702,8 @@ def run_test():
                 ap_wait  = int(ap_parts[1]) if len(ap_parts) > 1 and ap_parts[1].isdigit() else 8
                 ok, out = adb.set_airplane_mode(serial, ap_state, wait_secs=ap_wait)
             elif action == "OPEN_BROWSER":
-                ok, out = adb.open_browser(serial, value or "https://google.com")
+                ok, out = adb.open_browser(serial, value or "https://google.com",
+                                           screenshot_dir=SCREENSHOT_DIR)
             elif action == "SPEEDTEST":
                 wait = int(value) if str(value).isdigit() else 60
                 ok, out = adb.run_speedtest(serial, wait_secs=wait)
@@ -3089,19 +3744,9 @@ def run_test():
 
         ev = {**base, "result": result, "output": out[:400]}
 
-        if result == "fail" and serial:
+        if result == "fail" and action == "SET_NETWORK" and serial:
             try:
-                adb.wake_and_unlock(serial)
-                time.sleep(0.4)
-                ts_s = int(time.time())
-                fname = f"fail_step{step_num}_{action}_{ts_s}.png"
-                ok_sc, _ = adb.screenshot(serial, os.path.join(SCREENSHOTS_DIR, fname))
-                if ok_sc:
-                    ev["screenshot"] = fname
-                # SET_NETWORK leaves the dialog open on failure so we can screenshot it;
-                # close it now that the screenshot is taken
-                if action == "SET_NETWORK":
-                    adb.press_back(serial)
+                adb.press_back(serial)
             except Exception:
                 pass
 
@@ -3359,37 +4004,39 @@ def api_history_get():
 @app.route("/api/history", methods=["DELETE"])
 def api_history_delete():
     try:
-        with open(HISTORY_FILE, "w", encoding="utf-8") as f:
-            json.dump([], f)
+        for fname in os.listdir(HISTORY_DIR):
+            if fname.endswith(".json"):
+                os.remove(os.path.join(HISTORY_DIR, fname))
     except Exception:
         pass
     return jsonify({"ok": True})
 
 
-@app.route("/screenshots/<path:filename>")
-def serve_screenshot(filename):
-    """Serve a screenshot captured during a failed step."""
-    from flask import abort
-    safe = os.path.basename(filename)
-    path = os.path.join(SCREENSHOTS_DIR, safe)
-    if not os.path.isfile(path):
-        abort(404)
-    return send_file(path, mimetype="image/png")
-
 
 @app.route("/api/network_options")
 def api_network_options():
-    """Fetch available network-type options from each connected phone (runs in parallel)."""
+    """Return network-type options per phone. Uses cached profile if available, else ADB."""
     import adb_controller as adb
     result: dict = {}
     lock = threading.Lock()
+    profiles = _load_network_profiles()
 
     def _fetch(name: str, serial: str) -> None:
         try:
+            model = adb.get_device_model(serial)
+            if model and model in profiles and profiles[model].get("network_options"):
+                with lock:
+                    result[name] = profiles[model]["network_options"]
+                return
             opts = adb.get_network_options(serial)
             if opts:
                 with lock:
                     result[name] = opts
+                if model:
+                    updated = _load_network_profiles()
+                    updated.setdefault(model, {})["network_options"] = opts
+                    updated[model]["saved_at"] = datetime.now().isoformat(timespec="seconds")
+                    _save_network_profiles(updated)
         except Exception:
             pass
 
@@ -3398,8 +4045,10 @@ def api_network_options():
     for t in threads:
         t.start()
     for t in threads:
-        t.join(timeout=20)
+        t.join(timeout=25)
     return jsonify(result)
+
+
 
 
 @app.route("/api/package_list")
@@ -3438,6 +4087,53 @@ def api_package_list():
         return jsonify({"packages": packages})
     except Exception as exc:
         return jsonify({"packages": [], "error": str(exc)}), 200
+
+
+@app.route("/api/subscriber_packages")
+def api_subscriber_packages():
+    """Return active packages for a subscriber from DP_CHECK API."""
+    import data_pkg_api as dp
+    number = request.args.get("number", "")
+    if not number:
+        return jsonify({"packages": [], "error": "number required"})
+    cfg_data = _load_config()
+    msisdn = cfg_data.get("PHONE_NUMBERS", {}).get(number, number)
+    ok, out = dp.check_package(msisdn=msisdn, package_code="")
+    if not ok:
+        return jsonify({"packages": [], "error": out})
+    try:
+        data = json.loads(out)
+        pkgs = data.get("packages") or data.get("data") or []
+        names = [p.get("SRVNAME") or p.get("ServiceName") or p.get("name", "")
+                 for p in pkgs if isinstance(p, dict)]
+        names = [n for n in names if n]
+    except Exception:
+        names = []
+    return jsonify({"packages": names})
+
+
+@app.route("/api/subscriber_packages_full")
+def api_subscriber_packages_full():
+    """Return active packages with full stats (enddate, balance) for DP_MODIFY."""
+    import data_pkg_api as dp
+    number = request.args.get("number", "")
+    if not number:
+        return jsonify({"packages": [], "error": "number required"})
+    cfg_data = _load_config()
+    msisdn = cfg_data.get("PHONE_NUMBERS", {}).get(number, number)
+    ok, out = dp.check_package(msisdn=msisdn, package_code="")
+    if not ok:
+        return jsonify({"packages": [], "error": out})
+    stats = dp.parse_qtastats(out)
+    packages = [
+        {
+            "name":    name,
+            "enddate": info.get("SRVENDDATETIME", ""),
+            "balance": info.get("QTABALANCE", ""),
+        }
+        for name, info in stats.items()
+    ]
+    return jsonify({"packages": packages})
 
 
 @app.route("/api/phone_status")

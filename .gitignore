@@ -1,8 +1,17 @@
 __pycache__/
 *.pyc
+*.pyo
+
+# Local device config — each user has their own
+config.py
+
+# Runtime data — local state, not shared
+data/
+history/
 logs/
+
+# Media artifacts
 *.log
 *.xlsx
-config.py
 *.wav
-config.py
+*.zip
